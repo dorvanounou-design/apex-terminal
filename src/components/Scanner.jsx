@@ -1,9 +1,9 @@
 // src/components/Scanner.jsx — Full Market Scanner: Stocks (Sector Sniper) + Crypto (Categorized)
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Crosshair, RefreshCw, Zap, Star } from "lucide-react";
-import { T, mono, sans, pc, D, pct, fmt } from "../theme/tokens";
+import { T, mono, pc, D, pct, fmt } from "../theme/tokens";
 import { _c, fetchTopMovers, UNIVERSE_CATEGORIES, tickerCategory } from "../api/finance";
-import { Card, Badge, TabBar } from "./ui/Shared";
+import { Card, Badge, TabBar, Morph } from "./ui/Shared";
 
 /* ═══ SECTOR ETFs ═══ */
 const SECTOR_ETFS = [
@@ -192,6 +192,127 @@ const scoreColor = s => {
   return T.r.m;
 };
 
+/* ═══ SPOTLIGHT PANEL ═══ */
+const SpotlightPanel = ({ item, mode }) => {
+  if (!item) return (
+    <div style={{
+      height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      padding: 20, textAlign: 'center',
+    }}>
+      <Crosshair size={28} color={T.t.f} style={{ marginBottom: 12, opacity: 0.4 }} />
+      <div style={{ fontFamily: mono, fontSize: 11, color: T.t.m, marginBottom: 4 }}>No selection</div>
+      <div style={{ fontFamily: mono, fontSize: 9, color: T.t.f }}>Click a row to inspect</div>
+    </div>
+  );
+
+  const isStock = mode === 'Stocks';
+  const change = isStock ? item.ch : item.ch;
+  const changeColor = pc(change);
+
+  return (
+    <div style={{ padding: '14px 12px', animation: 'slideIn 0.22s cubic-bezier(0.22,1,0.36,1)', fontFamily: mono }}>
+      {/* Ticker + Price */}
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+          {!isStock && item.img && <img src={item.img} alt="" style={{ width: 20, height: 20, borderRadius: 3 }} />}
+          <span
+            style={{ fontSize: 20, fontWeight: 800, color: T.t.p, cursor: 'pointer', letterSpacing: 0.5 }}
+            title="Click to copy"
+            onClick={() => { navigator.clipboard.writeText(item.tk); }}
+          >{item.tk}</span>
+        </div>
+        <div style={{ fontSize: 9, color: T.t.m, marginBottom: 8 }}>{item.nm}</div>
+        <Morph value={D(item.pr)} style={{ fontSize: 22, fontWeight: 700, color: T.t.p, lineHeight: 1 }} />
+        <div style={{ marginTop: 4 }}>
+          <Morph value={pct(change)} style={{ fontSize: 13, fontWeight: 600, color: changeColor }} />
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div style={{ height: 1, background: T.b.s, margin: '8px 0 12px' }} />
+
+      {isStock ? (
+        <>
+          {/* Signal */}
+          <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Badge color={sigColor(item.signal)} style={{ fontSize: 9 }}>{item.signal}</Badge>
+            <span style={{ fontSize: 11, fontWeight: 700, color: scoreColor(item.score) }}>Score {item.score}</span>
+          </div>
+
+          {/* Technicals Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+            {[
+              ['RSI', item.rsi?.toFixed(0) ?? '—', item.rsi != null ? (item.rsi < 30 ? T.g.m : item.rsi > 70 ? T.r.m : T.t.s) : T.t.f],
+              ['Trend', item.trend || '—', item.trend === 'UP' ? T.g.m : item.trend === 'DOWN' ? T.r.m : T.t.m],
+              ['30d Mom', item.mom30 != null ? pct(item.mom30) : '—', item.mom30 != null ? (item.mom30 > 0 ? T.g.m : T.r.m) : T.t.f],
+              ['RVOL', item.rvol != null ? item.rvol.toFixed(1) + 'x' : '—', item.rvol != null ? (item.rvol > 1.5 ? T.g.m : T.t.s) : T.t.f],
+            ].map(([label, val, color]) => (
+              <div key={label} style={{ padding: '6px 8px', background: T.bg.deep, borderRadius: 3, borderLeft: `2px solid ${color}30` }}>
+                <div style={{ fontSize: 7, color: T.t.f, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 2 }}>{label}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color }}>{val}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* RSI Zone */}
+          {item.rsi != null && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ fontSize: 7, color: T.t.f, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 }}>RSI Zone</div>
+              <div style={{ height: 4, borderRadius: 2, background: T.bg.el, position: 'relative' }}>
+                <div style={{
+                  position: 'absolute', left: `${Math.min(item.rsi, 100)}%`, top: -3,
+                  width: 10, height: 10, borderRadius: '50%',
+                  background: item.rsi < 30 ? T.g.m : item.rsi > 70 ? T.r.m : T.t.s,
+                  border: `2px solid ${T.bg.deep}`, transform: 'translateX(-50%)',
+                  transition: 'left 0.3s ease',
+                }} />
+                {/* Zone markers */}
+                <div style={{ position: 'absolute', left: '30%', top: 0, bottom: 0, width: 1, background: T.g.m + '30' }} />
+                <div style={{ position: 'absolute', left: '70%', top: 0, bottom: 0, width: 1, background: T.r.m + '30' }} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
+                <span style={{ fontSize: 7, color: T.g.m }}>Oversold</span>
+                <span style={{ fontSize: 7, color: T.t.f }}>Neutral</span>
+                <span style={{ fontSize: 7, color: T.r.m }}>Overbought</span>
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          {/* Crypto details */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+            {[
+              ['1h', item.ch1h != null ? pct(item.ch1h) : '—', item.ch1h != null ? pc(item.ch1h) : T.t.f],
+              ['7d', item.ch7d != null ? pct(item.ch7d) : '—', item.ch7d != null ? pc(item.ch7d) : T.t.f],
+              ['Volume', item.vol ? fmt(item.vol) : '—', T.a.blue],
+              ['Mkt Cap', item.mc ? fmt(item.mc) : '—', T.t.s],
+            ].map(([label, val, color]) => (
+              <div key={label} style={{ padding: '6px 8px', background: T.bg.deep, borderRadius: 3, borderLeft: `2px solid ${color}30` }}>
+                <div style={{ fontSize: 7, color: T.t.f, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 2 }}>{label}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color }}>{val}</div>
+              </div>
+            ))}
+          </div>
+
+          {item.rank && (
+            <div style={{ marginTop: 10, padding: '6px 8px', background: T.bg.deep, borderRadius: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 8, color: T.t.f, textTransform: 'uppercase' }}>CMC Rank</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>#{item.rank}</span>
+            </div>
+          )}
+
+          {item.cat && (
+            <div style={{ marginTop: 6, display: 'flex', justifyContent: 'center' }}>
+              <Badge color={T.ion || T.accent2} style={{ fontSize: 8 }}>{item.cat}</Badge>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
 /* ═══ MAIN COMPONENT ═══ */
 const Scanner = ({ toast }) => {
   const [mode, setMode] = useState("Stocks");
@@ -203,6 +324,9 @@ const Scanner = ({ toast }) => {
   const [cryptoData, setCryptoData] = useState([]);
   const [cryptoLoading, setCryptoLoading] = useState(false);
   const [tab, setTab] = useState("All");
+  const [spotlight, setSpotlight] = useState(null);
+  const [spotIdx, setSpotIdx] = useState(-1);
+  const tableRef = useRef(null);
 
   // Load sector momentum on mount
   useEffect(() => {
@@ -283,8 +407,46 @@ const Scanner = ({ toast }) => {
     }
   };
 
+  // Clear spotlight when switching modes
+  useEffect(() => { setSpotlight(null); setSpotIdx(-1); }, [mode, activeSector, cryptoCat]);
+
+  // J/K keyboard navigation
+  useEffect(() => {
+    const list = mode === 'Stocks' ? filteredStocks : filteredCrypto;
+    const handler = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.key === 'j' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSpotIdx(prev => {
+          const next = Math.min(prev + 1, list.length - 1);
+          if (list[next]) setSpotlight(list[next]);
+          // Scroll row into view
+          const rows = tableRef.current?.querySelectorAll('.scanner-row');
+          rows?.[next]?.scrollIntoView({ block: 'nearest' });
+          return next;
+        });
+      } else if (e.key === 'k' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSpotIdx(prev => {
+          const next = Math.max(prev - 1, 0);
+          if (list[next]) setSpotlight(list[next]);
+          const rows = tableRef.current?.querySelectorAll('.scanner-row');
+          rows?.[next]?.scrollIntoView({ block: 'nearest' });
+          return next;
+        });
+      } else if (e.key === 'Escape') {
+        setSpotlight(null);
+        setSpotIdx(-1);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [mode, filteredStocks, filteredCrypto]);
+
   return (
-    <div>
+    <div style={{ display: 'flex', gap: 0, height: 'calc(100vh - 80px)' }}>
+      {/* ═══ LEFT: Data Grid (70%) ═══ */}
+      <div style={{ flex: '1 1 70%', minWidth: 0, overflow: 'auto', paddingRight: spotlight ? 0 : 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
         <Crosshair size={14} color={T.accent} />
         <span style={{ fontSize: 13, fontFamily: mono, fontWeight: 700, letterSpacing: 0.5 }}>MARKET SCANNER</span>
@@ -308,9 +470,9 @@ const Scanner = ({ toast }) => {
                 }}>
                   <span style={{ fontSize: 7, color: isActive ? T.accent : T.t.m, fontFamily: mono, textTransform: 'uppercase', fontWeight: isActive ? 700 : 400 }}>{s.sector}</span>
                   <div style={{ display: 'flex', gap: 6, fontFamily: mono, fontSize: 8 }}>
-                    <span style={{ color: momColor(s.day1) }}>{s.day1 != null ? (s.day1 > 0 ? '+' : '') + s.day1.toFixed(1) : '—'}</span>
-                    <span style={{ color: momColor(s.week1), fontWeight: 600 }}>{s.week1 != null ? (s.week1 > 0 ? '+' : '') + s.week1.toFixed(1) : '—'}</span>
-                    <span style={{ color: momColor(s.month1), fontWeight: 700 }}>{s.month1 != null ? (s.month1 > 0 ? '+' : '') + s.month1.toFixed(1) : '—'}</span>
+                    <span style={{ color: momColor(s.day1) }}>{pct(s.day1)}</span>
+                    <span style={{ color: momColor(s.week1), fontWeight: 600 }}>{pct(s.week1)}</span>
+                    <span style={{ color: momColor(s.month1), fontWeight: 700 }}>{pct(s.month1)}</span>
                   </div>
                 </button>
               );
@@ -331,9 +493,9 @@ const Scanner = ({ toast }) => {
             <TabBar tabs={["All", "Gainers", "Losers"]} active={tab} set={setTab} />
           )}
         </div>
-        <button onClick={refresh} style={{
+        <button onClick={refresh} aria-label="Refresh scanner" style={{
           display: 'flex', alignItems: 'center', gap: 3,
-          padding: '3px 8px', borderRadius: 2, border: `1px solid ${T.b1}`,
+          padding: '3px 8px', borderRadius: 2, border: `1px solid ${T.b.s}`,
           background: 'transparent', color: T.t.s, cursor: 'pointer',
           fontFamily: mono, fontSize: 8, fontWeight: 600, textTransform: 'uppercase',
         }}>
@@ -382,10 +544,10 @@ const Scanner = ({ toast }) => {
             ) : filteredStocks.length === 0 ? (
               <div style={{ padding: 24, textAlign: 'center', color: T.t.m, fontFamily: mono, fontSize: 10 }}>No stocks found</div>
             ) : (
-              <div style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 320px)' }}>
+              <div ref={tableRef} style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 320px)' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: mono, fontSize: 10 }}>
                   <thead>
-                    <tr style={{ borderBottom: `1px solid ${T.b1}`, position: 'sticky', top: 0, background: T.bg.card, zIndex: 1 }}>
+                    <tr style={{ borderBottom: `1px solid ${T.b.s}`, position: 'sticky', top: 0, background: T.bg.card, zIndex: 1 }}>
                       {['#', 'Ticker', 'Price', 'Change', 'Score', 'Signal', 'RSI', 'Trend', '30d Mom', 'RVOL'].map(h => (
                         <th key={h} style={{ padding: '4px 6px', textAlign: h === 'Ticker' ? 'left' : 'right', color: T.t.m, fontSize: 7, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 400 }}>{h}</th>
                       ))}
@@ -393,7 +555,12 @@ const Scanner = ({ toast }) => {
                   </thead>
                   <tbody>
                     {filteredStocks.map((s, i) => (
-                      <tr key={s.tk} style={{ borderBottom: `1px solid ${T.b1}10` }}>
+                      <tr key={s.tk} onClick={() => { setSpotlight(s); setSpotIdx(i); }} className="scanner-row" style={{
+                        borderBottom: `1px solid ${T.b.s}10`, cursor: 'pointer',
+                        background: spotlight?.tk === s.tk ? T.accent + '08' : 'transparent',
+                        borderLeft: spotlight?.tk === s.tk ? `2px solid ${T.accent}` : '2px solid transparent',
+                        transition: T.tr.ceramic || T.tr.fast,
+                      }}>
                         <td style={{ padding: '4px 6px', textAlign: 'right', color: T.t.f }}>{i + 1}</td>
                         <td style={{ padding: '4px 6px', textAlign: 'left' }}>
                           <span style={{ fontWeight: 700, color: T.t.p }}>{s.tk}</span>
@@ -409,7 +576,7 @@ const Scanner = ({ toast }) => {
                         </td>
                         <td style={{ padding: '4px 6px', textAlign: 'right', color: s.rsi != null ? (s.rsi < 30 ? T.g.m : s.rsi > 70 ? T.r.m : T.t.s) : T.t.f }}>{s.rsi?.toFixed(0) ?? '—'}</td>
                         <td style={{ padding: '4px 6px', textAlign: 'right', color: s.trend === 'UP' ? T.g.m : s.trend === 'DOWN' ? T.r.m : T.t.m, fontWeight: 600 }}>{s.trend || '—'}</td>
-                        <td style={{ padding: '4px 6px', textAlign: 'right', color: s.mom30 != null ? (s.mom30 > 0 ? T.g.m : T.r.m) : T.t.f }}>{s.mom30 != null ? (s.mom30 > 0 ? '+' : '') + s.mom30.toFixed(1) + '%' : '—'}</td>
+                        <td style={{ padding: '4px 6px', textAlign: 'right', color: s.mom30 != null ? (s.mom30 > 0 ? T.g.m : T.r.m) : T.t.f }}>{pct(s.mom30)}</td>
                         <td style={{ padding: '4px 6px', textAlign: 'right', color: s.rvol != null ? (s.rvol > 1.5 ? T.g.m : T.t.s) : T.t.f }}>{s.rvol?.toFixed(1) ?? '—'}x</td>
                       </tr>
                     ))}
@@ -435,7 +602,7 @@ const Scanner = ({ toast }) => {
             <div style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 220px)' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: mono, fontSize: 10 }}>
                 <thead>
-                  <tr style={{ borderBottom: `1px solid ${T.b1}`, position: 'sticky', top: 0, background: T.bg.card, zIndex: 1 }}>
+                  <tr style={{ borderBottom: `1px solid ${T.b.s}`, position: 'sticky', top: 0, background: T.bg.card, zIndex: 1 }}>
                     {['#', 'Asset', 'Price', '24h', '7d', 'Volume', 'Mkt Cap', 'Category'].map(h => (
                       <th key={h} style={{ padding: '4px 6px', textAlign: h === 'Asset' ? 'left' : 'right', color: T.t.m, fontSize: 7, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 400 }}>{h}</th>
                     ))}
@@ -443,7 +610,12 @@ const Scanner = ({ toast }) => {
                 </thead>
                 <tbody>
                   {filteredCrypto.map((c, i) => (
-                    <tr key={c.tk + i} style={{ borderBottom: `1px solid ${T.b1}10` }}>
+                    <tr key={c.tk + i} onClick={() => { setSpotlight(c); setSpotIdx(i); }} className="scanner-row" style={{
+                      borderBottom: `1px solid ${T.b.s}10`, cursor: 'pointer',
+                      background: spotlight?.tk === c.tk ? T.accent + '08' : 'transparent',
+                      borderLeft: spotlight?.tk === c.tk ? `2px solid ${T.accent}` : '2px solid transparent',
+                      transition: T.tr.ceramic || T.tr.fast,
+                    }}>
                       <td style={{ padding: '4px 6px', textAlign: 'right', color: T.t.f }}>{c.rank || i + 1}</td>
                       <td style={{ padding: '4px 6px', textAlign: 'left' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -469,7 +641,38 @@ const Scanner = ({ toast }) => {
         </Card>
       )}
 
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes slideIn { from { transform: translateX(12px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .scanner-row:hover { background: ${T.bg.hover} !important; }
+        .scanner-row:hover td:first-child::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: ${T.accent}60; }
+      `}</style>
+      </div>
+
+      {/* ═══ RIGHT: Spotlight Panel (30%) ═══ */}
+      <div style={{
+        width: 260, flexShrink: 0,
+        borderLeft: `1px solid ${T.b.s}`,
+        background: T.bg.card,
+        overflow: 'auto',
+        borderRadius: `0 ${T.rad.md}px ${T.rad.md}px 0`,
+      }}>
+        <div style={{
+          padding: '10px 12px', borderBottom: `1px solid ${T.b.s}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <span style={{ fontFamily: mono, fontSize: 8, color: T.t.f, textTransform: 'uppercase', letterSpacing: 1 }}>Spotlight</span>
+          {spotlight && (
+            <button onClick={() => setSpotlight(null)} aria-label="Close spotlight" style={{
+              background: 'none', border: 'none', cursor: 'pointer', color: T.t.f, padding: 2,
+              display: 'flex', alignItems: 'center',
+            }}>
+              <span style={{ fontSize: 12, lineHeight: 1 }}>&times;</span>
+            </button>
+          )}
+        </div>
+        <SpotlightPanel item={spotlight} mode={mode} />
+      </div>
     </div>
   );
 };

@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Search, RefreshCw, ChevronDown, ChevronUp, TrendingUp, Plus, X, Activity, Target, BarChart3, Zap, AlertTriangle, Star, Flame } from "lucide-react";
 import { T, mono, sans, pc, fmt, D, pct } from "../theme/tokens";
-import { Card, Badge, TabBar } from "./ui/Shared";
+import { Card, Badge, TabBar, Morph } from "./ui/Shared";
 import { fetchApexScreener, fetchSingleAnalysis, UNIVERSE_CATEGORIES } from "../api/finance";
 
 /* ═══ HELPERS ═══ */
@@ -232,7 +232,7 @@ const DetailCard = ({ s }) => {
   const bearCount = reasons.filter(r => r.type === 'bear').length;
 
   const mb = { background: T.bg.deep, borderRadius: 5, padding: '6px 8px' };
-  const ml = { fontSize: 8, color: T.t.m, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 };
+  const ml = { fontSize: 8, fontFamily: mono, color: T.t.m, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 };
   const mv = { fontFamily: mono, fontSize: 12, fontWeight: 600 };
 
   return (
@@ -270,13 +270,13 @@ const DetailCard = ({ s }) => {
 
         {/* Verdict summary */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
-          <div style={{ padding: '4px 10px', borderRadius: 5, background: T.g.bg, border: `1px solid ${T.g.m}44`, fontFamily: sans, fontSize: 11, color: T.g.m, fontWeight: 600 }}>
+          <div style={{ padding: '4px 10px', borderRadius: 5, background: T.g.bg, border: `1px solid ${T.g.m}44`, fontFamily: mono, fontSize: 11, color: T.g.m, fontWeight: 600 }}>
             {bullCount} Bullish
           </div>
-          <div style={{ padding: '4px 10px', borderRadius: 5, background: T.r.bg, border: `1px solid ${T.r.m}44`, fontFamily: sans, fontSize: 11, color: T.r.m, fontWeight: 600 }}>
+          <div style={{ padding: '4px 10px', borderRadius: 5, background: T.r.bg, border: `1px solid ${T.r.m}44`, fontFamily: mono, fontSize: 11, color: T.r.m, fontWeight: 600 }}>
             {bearCount} Bearish
           </div>
-          <div style={{ padding: '4px 10px', borderRadius: 5, background: T.a.bg, border: `1px solid ${T.a.blue}44`, fontFamily: sans, fontSize: 11, color: T.a.blue, fontWeight: 600 }}>
+          <div style={{ padding: '4px 10px', borderRadius: 5, background: T.a.bg, border: `1px solid ${T.a.blue}44`, fontFamily: mono, fontSize: 11, color: T.a.blue, fontWeight: 600 }}>
             {reasons.length - bullCount - bearCount} Neutral
           </div>
           <div style={{ marginLeft: 'auto', fontFamily: mono, fontSize: 11, color: T.t.m, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -296,7 +296,7 @@ const DetailCard = ({ s }) => {
               <span style={{ fontSize: 13, flexShrink: 0, marginTop: 1 }}>{r.icon}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{
-                  fontFamily: sans, fontSize: 11, fontWeight: 700, marginBottom: 1,
+                  fontFamily: mono, fontSize: 11, fontWeight: 700, marginBottom: 1,
                   color: r.type === 'bull' ? T.g.m : r.type === 'bear' ? T.r.m : T.a.blue,
                 }}>{r.title}</div>
                 <div style={{ fontFamily: sans, fontSize: 10, color: T.t.s, lineHeight: 1.45 }}>{r.detail}</div>
@@ -309,6 +309,103 @@ const DetailCard = ({ s }) => {
   );
 };
 
+/* ═══ SPOTLIGHT PANEL ═══ */
+const RecsSpotlight = ({ item }) => {
+  if (!item) return (
+    <div style={{
+      height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      padding: 20, textAlign: 'center',
+    }}>
+      <Target size={28} color={T.t.f} style={{ marginBottom: 12, opacity: 0.4 }} />
+      <div style={{ fontFamily: mono, fontSize: 11, color: T.t.m, marginBottom: 4 }}>No selection</div>
+      <div style={{ fontFamily: mono, fontSize: 9, color: T.t.f }}>Click a row to inspect</div>
+    </div>
+  );
+
+  const s = item;
+  const trend = trendLabel(s.price, s.sma20, s.sma50);
+  const reasons = generateFullAnalysis(s);
+  const bullCount = reasons.filter(r => r.type === 'bull').length;
+  const bearCount = reasons.filter(r => r.type === 'bear').length;
+
+  return (
+    <div style={{ padding: '14px 12px', animation: 'slideIn 0.22s cubic-bezier(0.22,1,0.36,1)', fontFamily: mono, overflowY: 'auto' }}>
+      {/* Ticker + Price */}
+      <div style={{ marginBottom: 10 }}>
+        <span
+          style={{ fontSize: 20, fontWeight: 800, color: T.t.p, cursor: 'pointer', letterSpacing: 0.5 }}
+          title="Click to copy"
+          onClick={() => navigator.clipboard.writeText(s.ticker)}
+        >{s.ticker}</span>
+        <div style={{ fontSize: 9, color: T.t.m, marginTop: 1, marginBottom: 6 }}>{s.name}</div>
+        <Morph value={D(s.price)} style={{ fontSize: 22, fontWeight: 700, color: T.t.p, lineHeight: 1 }} />
+        <div style={{ marginTop: 3 }}>
+          <Morph value={s.changePct != null ? pct(s.changePct) : ''} style={{ fontSize: 13, fontWeight: 600, color: pc(s.changePct) }} />
+        </div>
+      </div>
+
+      {/* Signal + Score */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <Badge color={ratingColor(s.analystRating)} style={{ fontSize: 9 }}>{s.analystRating}</Badge>
+        <span style={{ fontSize: 13, fontWeight: 700, color: scoreColor(s.apexScore) }}>APEX {s.apexScore.toFixed(1)}</span>
+      </div>
+
+      <div style={{ height: 1, background: T.b.s, margin: '0 0 10px' }} />
+
+      {/* Technicals Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5, marginBottom: 10 }}>
+        {[
+          ['RSI', s.rsi?.toFixed(0) ?? '—', rsiColor(s.rsi)],
+          ['Trend', trend.text, trend.color],
+          ['30d Mom', s.mom30d != null ? pct(s.mom30d) : '—', s.mom30d != null ? pc(s.mom30d) : T.t.f],
+          ['RVOL', s.volRatio?.toFixed(1) + 'x' || '—', s.volRatio > 1.5 ? T.g.m : T.t.s],
+          ['52W Pos', s.w52Position != null ? s.w52Position.toFixed(0) + '%' : '—', s.w52Position < 30 ? T.g.m : s.w52Position > 80 ? T.r.m : T.t.s],
+          ['Risk', (() => { const rb = riskBadge(s.riskScore || 0); return rb.label; })(), (() => { const rb = riskBadge(s.riskScore || 0); return rb.color; })()],
+        ].map(([label, val, color]) => (
+          <div key={label} style={{ padding: '5px 7px', background: T.bg.deep, borderRadius: 3, borderLeft: `2px solid ${color}30` }}>
+            <div style={{ fontSize: 7, color: T.t.f, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 1 }}>{label}</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color }}>{val}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Bull / Bear count */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+        <div style={{ flex: 1, padding: '4px 6px', borderRadius: 3, background: T.g.bg, textAlign: 'center' }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: T.g.m }}>{bullCount}</span>
+          <span style={{ fontSize: 8, color: T.g.m, marginLeft: 3 }}>Bull</span>
+        </div>
+        <div style={{ flex: 1, padding: '4px 6px', borderRadius: 3, background: T.r.bg, textAlign: 'center' }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: T.r.m }}>{bearCount}</span>
+          <span style={{ fontSize: 8, color: T.r.m, marginLeft: 3 }}>Bear</span>
+        </div>
+      </div>
+
+      <div style={{ height: 1, background: T.b.s, margin: '0 0 8px' }} />
+
+      {/* Why it Matched — condensed reasons */}
+      <div style={{ fontSize: 8, color: T.t.f, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 6 }}>Why it matched</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {reasons.slice(0, 5).map((r, i) => (
+          <div key={i} style={{
+            padding: '5px 7px', borderRadius: 3,
+            background: r.type === 'bull' ? 'rgba(16,185,129,0.06)' : r.type === 'bear' ? 'rgba(239,68,68,0.06)' : 'rgba(59,130,246,0.06)',
+            borderLeft: `2px solid ${r.type === 'bull' ? T.g.m : r.type === 'bear' ? T.r.m : T.a.blue}40`,
+          }}>
+            <div style={{ fontSize: 9, fontWeight: 700, color: r.type === 'bull' ? T.g.m : r.type === 'bear' ? T.r.m : T.a.blue, marginBottom: 1 }}>
+              {r.icon} {r.title}
+            </div>
+            <div style={{ fontFamily: sans, fontSize: 8, color: T.t.s, lineHeight: 1.4 }}>{r.detail}</div>
+          </div>
+        ))}
+        {reasons.length > 5 && (
+          <div style={{ fontSize: 8, color: T.t.f, textAlign: 'center', padding: 3 }}>+{reasons.length - 5} more signals</div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 /* ═══ MAIN COMPONENT ═══ */
 const Recommendations = ({ holdings, toast }) => {
   const [stocks, setStocks] = useState([]);
@@ -317,6 +414,9 @@ const Recommendations = ({ holdings, toast }) => {
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [tab, setTab] = useState('Top 20');
   const [expanded, setExpanded] = useState(null);
+  const [spotlight, setSpotlight] = useState(null);
+  const [spotIdx, setSpotIdx] = useState(-1);
+  const tableRef = useRef(null);
   const [refreshedAt, setRefreshedAt] = useState(null);
   const [search, setSearch] = useState('');
   const [addTicker, setAddTicker] = useState('');
@@ -403,15 +503,48 @@ const Recommendations = ({ holdings, toast }) => {
     return s.ticker.includes(q) || s.name.toUpperCase().includes(q);
   });
 
+  // J/K keyboard navigation
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.key === 'j' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSpotIdx(prev => {
+          const next = Math.min(prev + 1, filtered.length - 1);
+          if (filtered[next]) { setSpotlight(filtered[next]); setExpanded(filtered[next].ticker); }
+          const rows = tableRef.current?.querySelectorAll('.apex-row');
+          rows?.[next]?.scrollIntoView({ block: 'nearest' });
+          return next;
+        });
+      } else if (e.key === 'k' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSpotIdx(prev => {
+          const next = Math.max(prev - 1, 0);
+          if (filtered[next]) { setSpotlight(filtered[next]); setExpanded(filtered[next].ticker); }
+          const rows = tableRef.current?.querySelectorAll('.apex-row');
+          rows?.[next]?.scrollIntoView({ block: 'nearest' });
+          return next;
+        });
+      } else if (e.key === 'Escape') {
+        setSpotlight(null); setSpotIdx(-1); setExpanded(null);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [filtered]);
+
   const timeSince = refreshedAt ? Math.round((Date.now() - refreshedAt.getTime()) / 60000) : null;
 
   return (
-    <div>
+    <div style={{ display: 'flex', gap: 0, height: 'calc(100vh - 80px)' }}>
+      {/* ═══ LEFT: Data Grid (70%) ═══ */}
+      <div style={{ flex: '1 1 70%', minWidth: 0, overflow: 'auto' }}>
       <style>{`
         @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.8; } }
         @keyframes fadeInRow { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes slideDown { from { opacity: 0; max-height: 0; } to { opacity: 1; max-height: 1200px; } }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes slideIn { from { transform: translateX(12px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         .apex-row:hover { background: ${T.bg.el} !important; }
         .apex-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .apex-table th { position: sticky; top: 0; z-index: 2; }
@@ -422,7 +555,7 @@ const Recommendations = ({ holdings, toast }) => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <TrendingUp size={16} color={T.accent} />
-          <h2 style={{ fontSize: 14, fontFamily: sans, fontWeight: 700, color: T.t.p, margin: 0 }}>APEX Screener</h2>
+          <h2 style={{ fontSize: 14, fontFamily: mono, fontWeight: 700, color: T.t.p, margin: 0 }}>APEX Screener</h2>
           <Badge color={T.accent}>{stocks.length}</Badge>
           {stocks.some(s => s._discovered) && <Badge color={T.gold}>{stocks.filter(s => s._discovered).length} new</Badge>}
         </div>
@@ -440,11 +573,11 @@ const Recommendations = ({ holdings, toast }) => {
                 outline: 'none', width: 75,
               }}
             />
-            <button type="submit" disabled={adding || !addTicker.trim()} style={{
+            <button type="submit" disabled={adding || !addTicker.trim()} aria-label="Add ticker to screener" title={!addTicker.trim() ? "Enter a ticker symbol first" : adding ? "Adding..." : "Add ticker"} style={{
               display: 'flex', alignItems: 'center', gap: 2,
               padding: '4px 7px', borderRadius: 4, border: `1px solid ${T.accent}44`,
               background: T.accentDim, color: T.accent, cursor: 'pointer',
-              fontFamily: sans, fontSize: 10, fontWeight: 600, opacity: adding ? 0.5 : 1,
+              fontFamily: mono, fontSize: 10, fontWeight: 600, opacity: adding ? 0.5 : 1,
             }}>
               <Plus size={10} />{adding ? '...' : 'Add'}
             </button>
@@ -455,11 +588,11 @@ const Recommendations = ({ holdings, toast }) => {
               {timeSince <= 0 ? 'now' : `${timeSince}m`}
             </span>
           )}
-          <button onClick={loadData} disabled={loading} style={{
+          <button onClick={loadData} disabled={loading} aria-label="Refresh screener" style={{
             display: 'flex', alignItems: 'center', gap: 3,
             padding: '4px 8px', borderRadius: 4, border: `1px solid ${T.b.s}`,
             background: 'transparent', color: T.t.s, cursor: 'pointer',
-            fontFamily: sans, fontSize: 10, opacity: loading ? 0.5 : 1,
+            fontFamily: mono, fontSize: 10, opacity: loading ? 0.5 : 1,
           }}>
             <RefreshCw size={11} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
           </button>
@@ -485,13 +618,14 @@ const Recommendations = ({ holdings, toast }) => {
 
       {/* Table */}
       <Card style={{ padding: 0, overflow: 'auto', maxHeight: 'calc(100vh - 150px)' }}>
+        <div ref={tableRef}>
         <table className="apex-table">
           <thead>
             <tr style={{ background: T.bg.deep, borderBottom: `1px solid ${T.b.s}` }}>
               {['#', 'Ticker', 'Company', 'Price', 'Score', 'Signal', 'RSI', 'Risk', 'Trend'].map((h, i) => (
                 <th key={h} style={{
                   padding: '6px 6px', textAlign: 'left',
-                  fontSize: 8, fontFamily: sans, fontWeight: 600, color: T.t.m,
+                  fontSize: 8, fontFamily: mono, fontWeight: 600, color: T.t.m,
                   textTransform: 'uppercase', letterSpacing: 0.7, background: T.bg.deep,
                   width: i === 0 ? 24 : i === 1 ? 58 : i === 2 ? 'auto' : i === 3 ? 95 : i === 4 ? 46 : i === 5 ? 70 : i === 6 ? 45 : i === 7 ? 50 : 52,
                 }}>{h}</th>
@@ -513,13 +647,13 @@ const Recommendations = ({ holdings, toast }) => {
             </>}
 
             {error && !loading && (
-              <tr><td colSpan={9} style={{ padding: 24, textAlign: 'center', color: T.r.m, fontFamily: sans, fontSize: 12 }}>
+              <tr><td colSpan={9} style={{ padding: 24, textAlign: 'center', color: T.r.m, fontFamily: mono, fontSize: 12 }}>
                 {error} <button onClick={loadData} style={{ marginLeft: 6, padding: '3px 10px', borderRadius: 4, border: `1px solid ${T.r.m}`, background: T.r.bg, color: T.r.m, cursor: 'pointer', fontSize: 11 }}>Retry</button>
               </td></tr>
             )}
 
             {!loading && !error && filtered.length === 0 && (
-              <tr><td colSpan={9} style={{ padding: 24, textAlign: 'center', color: T.t.m, fontFamily: sans, fontSize: 12 }}>No stocks match.</td></tr>
+              <tr><td colSpan={9} style={{ padding: 24, textAlign: 'center', color: T.t.m, fontFamily: mono, fontSize: 12 }}>No stocks match.</td></tr>
             )}
 
             {filtered.map((s, i) => {
@@ -530,10 +664,11 @@ const Recommendations = ({ holdings, toast }) => {
                 <tr
                   key={s.ticker}
                   className="apex-row"
-                  onClick={() => setExpanded(isExp ? null : s.ticker)}
+                  onClick={() => { setExpanded(isExp ? null : s.ticker); setSpotlight(s); setSpotIdx(i); }}
                   style={{
-                    background: isExp ? T.bg.el : (i % 2 === 0 ? T.bg.card : T.bg.surface),
+                    background: spotlight?.ticker === s.ticker ? T.accent + '08' : isExp ? T.bg.el : (i % 2 === 0 ? T.bg.card : T.bg.surface),
                     cursor: 'pointer', transition: 'background 0.12s',
+                    borderLeft: spotlight?.ticker === s.ticker ? `2px solid ${T.accent}` : '2px solid transparent',
                     animation: `fadeInRow 0.2s ease-out ${Math.min(i * 0.015, 0.3)}s both`,
                     borderBottom: `1px solid ${T.b.s}`,
                   }}
@@ -586,7 +721,34 @@ const Recommendations = ({ holdings, toast }) => {
             })}
           </tbody>
         </table>
+        </div>
       </Card>
+      </div>
+
+      {/* ═══ RIGHT: Spotlight Panel (30%) ═══ */}
+      <div style={{
+        width: 270, flexShrink: 0,
+        borderLeft: `1px solid ${T.b.s}`,
+        background: T.bg.card,
+        overflow: 'auto',
+        borderRadius: `0 ${T.rad.md}px ${T.rad.md}px 0`,
+      }}>
+        <div style={{
+          padding: '10px 12px', borderBottom: `1px solid ${T.b.s}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <span style={{ fontFamily: mono, fontSize: 8, color: T.t.f, textTransform: 'uppercase', letterSpacing: 1 }}>Spotlight</span>
+          {spotlight && (
+            <button onClick={() => setSpotlight(null)} aria-label="Close spotlight" style={{
+              background: 'none', border: 'none', cursor: 'pointer', color: T.t.f, padding: 2,
+              display: 'flex', alignItems: 'center',
+            }}>
+              <span style={{ fontSize: 12, lineHeight: 1 }}>&times;</span>
+            </button>
+          )}
+        </div>
+        <RecsSpotlight item={spotlight} />
+      </div>
     </div>
   );
 };
