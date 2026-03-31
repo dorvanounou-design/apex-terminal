@@ -1,7 +1,7 @@
 // src/components/AddModal.jsx — with Valuation Friction + Decision Tagging
 import { useState, useEffect, useRef } from "react";
 import { Plus, X, Loader, Shield, AlertTriangle } from "lucide-react";
-import { T, mono, display } from "../theme/tokens";
+import { T, mono, D, pct } from "../theme/tokens";
 import { fetchPrice, isC } from "../api/finance";
 import { Btn } from "./ui/Shared";
 
@@ -132,21 +132,21 @@ const AddModal = ({ onClose, onAdd, toast }) => {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={{ width: 440, maxWidth: "92vw", background: T.bg.card, border: `1px solid ${T.b1}`, borderRadius: 2, padding: 20, boxShadow: "0 20px 60px rgba(0,0,0,0.6)" }}>
+    <div style={{ position: "fixed", inset: 0, background: T.bg.deep, backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose} onKeyDown={e => e.key === 'Escape' && onClose()}>
+      <div onClick={e => e.stopPropagation()} style={{ width: 440, maxWidth: "92vw", background: T.bg.card, border: `1px solid ${T.b.s}`, borderRadius: T.rad.lg, padding: 20, boxShadow: T.shadow.lg }}>
 
         {/* ═══ FRICTION PHASE: Auditing ═══ */}
         {frictionPhase === 'auditing' && (
           <div style={{ textAlign: 'center', padding: '30px 10px' }}>
             <Shield size={28} color={T.accent} style={{ marginBottom: 12, opacity: 0.8 }} />
-            <div style={{ fontFamily: display, fontSize: 18, color: T.t1, marginBottom: 16 }}>
+            <div style={{ fontFamily: mono, fontSize: 18, color: T.t.p, marginBottom: 16 }}>
               Behavioral Guardrail Active
             </div>
             <div style={{ fontFamily: mono, fontSize: 10, color: T.accent, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 16 }}>
               {FRICTION_STEPS[frictionStep]}
             </div>
             {/* Progress bar */}
-            <div style={{ width: '100%', height: 3, background: T.b1, borderRadius: 0, overflow: 'hidden', marginBottom: 8 }}>
+            <div style={{ width: '100%', height: 3, background: T.b.s, borderRadius: 0, overflow: 'hidden', marginBottom: 8 }}>
               <div style={{
                 width: `${frictionProgress}%`,
                 height: '100%',
@@ -154,7 +154,7 @@ const AddModal = ({ onClose, onAdd, toast }) => {
                 transition: 'width 0.05s linear',
               }} />
             </div>
-            <div style={{ fontFamily: mono, fontSize: 8, color: T.t4 }}>
+            <div style={{ fontFamily: mono, fontSize: 8, color: T.t.f }}>
               {Math.round(frictionProgress)}% — forced delay to prevent impulse entries
             </div>
           </div>
@@ -164,8 +164,8 @@ const AddModal = ({ onClose, onAdd, toast }) => {
         {frictionPhase === 'result' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <div style={{ fontFamily: display, fontSize: 18, color: T.t1 }}>Valuation Audit</div>
-              <X size={16} style={{ color: T.t3, cursor: 'pointer' }} onClick={onClose} />
+              <div style={{ fontFamily: mono, fontSize: 18, color: T.t.p }}>Valuation Audit</div>
+              <X size={16} style={{ color: T.t.m, cursor: 'pointer' }} onClick={onClose} aria-label="Close modal" />
             </div>
 
             {valuation ? (
@@ -186,23 +186,23 @@ const AddModal = ({ onClose, onAdd, toast }) => {
                 {/* Metrics grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
                   {[
-                    ['Market Price', '$' + valuation.price.toFixed(2), T.t1],
-                    ['Fair Value', '$' + valuation.fairValue.toFixed(2), '#3b82f6'],
-                    ['MoS Price', '$' + valuation.fairValueMoS.toFixed(2), T.g?.m || '#22c55e'],
-                    ['SMA 200', '$' + valuation.sma200.toFixed(2), T.t2],
-                    ['12M Momentum', valuation.mom12m != null ? valuation.mom12m + '%' : '—', valuation.mom12m > 0 ? '#22c55e' : '#ef4444'],
+                    ['Market Price', D(valuation.price), T.t.p],
+                    ['Fair Value', D(valuation.fairValue), '#3b82f6'],
+                    ['MoS Price', D(valuation.fairValueMoS), T.g?.m || '#22c55e'],
+                    ['SMA 200', D(valuation.sma200), T.t.s],
+                    ['12M Momentum', valuation.mom12m != null ? pct(valuation.mom12m) : '—', valuation.mom12m > 0 ? '#22c55e' : '#ef4444'],
                     ['Margin of Safety', '20%', T.accent],
                   ].map(([label, val, color], i) => (
                     <div key={i} style={{ padding: '6px 8px', background: T.bg.deep, borderRadius: 2 }}>
-                      <div style={{ fontFamily: mono, fontSize: 7, color: T.t3, textTransform: 'uppercase', letterSpacing: 0.8 }}>{label}</div>
+                      <div style={{ fontFamily: mono, fontSize: 7, color: T.t.m, textTransform: 'uppercase', letterSpacing: 0.8 }}>{label}</div>
                       <div style={{ fontFamily: mono, fontSize: 12, fontWeight: 600, color }}>{val}</div>
                     </div>
                   ))}
                 </div>
 
                 {/* Decision type reminder */}
-                <div style={{ padding: '6px 10px', background: T.bg.deep, borderRadius: 2, marginBottom: 12, borderLeft: `2px solid ${DECISION_TYPES.find(d => d.id === decision)?.color || T.t3}` }}>
-                  <span style={{ fontFamily: mono, fontSize: 8, color: T.t3, textTransform: 'uppercase' }}>Decision Type: </span>
+                <div style={{ padding: '6px 10px', background: T.bg.deep, borderRadius: 2, marginBottom: 12, borderLeft: `2px solid ${DECISION_TYPES.find(d => d.id === decision)?.color || T.t.m}` }}>
+                  <span style={{ fontFamily: mono, fontSize: 8, color: T.t.m, textTransform: 'uppercase' }}>Decision Type: </span>
                   <span style={{ fontFamily: mono, fontSize: 9, fontWeight: 700, color: DECISION_TYPES.find(d => d.id === decision)?.color }}>
                     {decision}
                   </span>
@@ -214,7 +214,7 @@ const AddModal = ({ onClose, onAdd, toast }) => {
                 </div>
               </div>
             ) : (
-              <div style={{ padding: 16, textAlign: 'center', color: T.t3, fontFamily: mono, fontSize: 10 }}>
+              <div style={{ padding: 16, textAlign: 'center', color: T.t.m, fontFamily: mono, fontSize: 10 }}>
                 Valuation data unavailable — proceed with your own analysis.
               </div>
             )}
@@ -233,54 +233,54 @@ const AddModal = ({ onClose, onAdd, toast }) => {
         {!frictionPhase && (
           <>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h3 style={{ margin: 0, fontFamily: display, fontSize: 20, color: T.t1 }}>Add Position</h3>
-              <X size={16} style={{ color: T.t3, cursor: "pointer" }} onClick={onClose} />
+              <h3 style={{ margin: 0, fontFamily: mono, fontSize: 20, color: T.t.p }}>Add Position</h3>
+              <X size={16} style={{ color: T.t.m, cursor: "pointer" }} onClick={onClose} aria-label="Close modal" />
             </div>
 
             <div style={{ display: "grid", gap: 12 }}>
               {/* Ticker */}
               <div>
-                <label style={{ fontSize: 8, color: T.t3, display: "block", marginBottom: 3, textTransform: "uppercase", letterSpacing: 1, fontFamily: mono }}>Ticker</label>
+                <label style={{ fontSize: 8, color: T.t.m, display: "block", marginBottom: 3, textTransform: "uppercase", letterSpacing: 1, fontFamily: mono }}>Ticker</label>
                 <input value={tk} onChange={e => setTk(e.target.value.toUpperCase())} placeholder="AAPL, BTC, WIX..."
-                  style={{ width: "100%", padding: "8px 10px", background: T.bg.deep, border: `1px solid ${T.b1}`, borderRadius: 2, color: T.t1, fontFamily: mono, fontSize: 13, outline: "none", boxSizing: "border-box" }}
+                  style={{ width: "100%", padding: "8px 10px", background: T.bg.deep, border: `1px solid ${T.b.s}`, borderRadius: 2, color: T.t.p, fontFamily: mono, fontSize: 13, outline: "none", boxSizing: "border-box" }}
                   onKeyDown={e => e.key === "Enter" && startFriction()} />
               </div>
 
               {/* Qty + Price */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 <div>
-                  <label style={{ fontSize: 8, color: T.t3, display: "block", marginBottom: 3, textTransform: "uppercase", letterSpacing: 1, fontFamily: mono }}>Quantity</label>
+                  <label style={{ fontSize: 8, color: T.t.m, display: "block", marginBottom: 3, textTransform: "uppercase", letterSpacing: 1, fontFamily: mono }}>Quantity</label>
                   <input type="number" min="0" step="any" value={qty} onChange={e => setQty(e.target.value)} placeholder="50"
-                    style={{ width: "100%", padding: "8px 10px", background: T.bg.deep, border: `1px solid ${T.b1}`, borderRadius: 2, color: T.t1, fontFamily: mono, fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+                    style={{ width: "100%", padding: "8px 10px", background: T.bg.deep, border: `1px solid ${T.b.s}`, borderRadius: 2, color: T.t.p, fontFamily: mono, fontSize: 13, outline: "none", boxSizing: "border-box" }} />
                 </div>
                 <div>
-                  <label style={{ fontSize: 8, color: T.t3, display: "block", marginBottom: 3, textTransform: "uppercase", letterSpacing: 1, fontFamily: mono }}>Buy Price ($)</label>
+                  <label style={{ fontSize: 8, color: T.t.m, display: "block", marginBottom: 3, textTransform: "uppercase", letterSpacing: 1, fontFamily: mono }}>Buy Price ($)</label>
                   <input type="number" min="0" step="any" value={avg} onChange={e => setAvg(e.target.value)} placeholder="150.00"
-                    style={{ width: "100%", padding: "8px 10px", background: T.bg.deep, border: `1px solid ${T.b1}`, borderRadius: 2, color: T.t1, fontFamily: mono, fontSize: 13, outline: "none", boxSizing: "border-box" }}
+                    style={{ width: "100%", padding: "8px 10px", background: T.bg.deep, border: `1px solid ${T.b.s}`, borderRadius: 2, color: T.t.p, fontFamily: mono, fontSize: 13, outline: "none", boxSizing: "border-box" }}
                     onKeyDown={e => e.key === "Enter" && startFriction()} />
                 </div>
               </div>
 
               {/* Entry Date */}
               <div>
-                <label style={{ fontSize: 8, color: T.t3, display: "block", marginBottom: 3, textTransform: "uppercase", letterSpacing: 1, fontFamily: mono }}>Entry Date</label>
+                <label style={{ fontSize: 8, color: T.t.m, display: "block", marginBottom: 3, textTransform: "uppercase", letterSpacing: 1, fontFamily: mono }}>Entry Date</label>
                 <input type="date" value={entryDate} onChange={e => setEntryDate(e.target.value)}
-                  style={{ width: "100%", padding: "8px 10px", background: T.bg.deep, border: `1px solid ${T.b1}`, borderRadius: 2, color: T.t1, fontFamily: mono, fontSize: 12, outline: "none", boxSizing: "border-box", colorScheme: 'dark' }} />
+                  style={{ width: "100%", padding: "8px 10px", background: T.bg.deep, border: `1px solid ${T.b.s}`, borderRadius: 2, color: T.t.p, fontFamily: mono, fontSize: 12, outline: "none", boxSizing: "border-box", colorScheme: 'dark' }} />
               </div>
 
               {/* Decision Type */}
               <div>
-                <label style={{ fontSize: 8, color: T.t3, display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: 1, fontFamily: mono }}>Decision Type</label>
+                <label style={{ fontSize: 8, color: T.t.m, display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: 1, fontFamily: mono }}>Decision Type</label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
                   {DECISION_TYPES.map(dt => (
                     <button key={dt.id} onClick={() => setDecision(dt.id)} style={{
                       padding: '6px 8px', borderRadius: 2, cursor: 'pointer',
-                      border: `1px solid ${decision === dt.id ? dt.color : T.b1}`,
+                      border: `1px solid ${decision === dt.id ? dt.color : T.b.s}`,
                       background: decision === dt.id ? dt.color + '12' : 'transparent',
                       textAlign: 'left',
                     }}>
-                      <div style={{ fontFamily: mono, fontSize: 9, fontWeight: 600, color: decision === dt.id ? dt.color : T.t2 }}>{dt.label}</div>
-                      <div style={{ fontFamily: mono, fontSize: 7, color: T.t4 }}>{dt.desc}</div>
+                      <div style={{ fontFamily: mono, fontSize: 9, fontWeight: 600, color: decision === dt.id ? dt.color : T.t.s }}>{dt.label}</div>
+                      <div style={{ fontFamily: mono, fontSize: 7, color: T.t.f }}>{dt.desc}</div>
                     </button>
                   ))}
                 </div>

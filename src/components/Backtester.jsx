@@ -1,7 +1,7 @@
 // src/components/Backtester.jsx — APEX Strategy Auditor with Regime Filter
 import { useState, useCallback, useRef } from "react";
 import { FlaskConical, Play, Square } from "lucide-react";
-import { T, mono, sans, pc, fmt, pct } from "../theme/tokens";
+import { T, mono, pc, fmt, pct, D } from "../theme/tokens";
 import { Card, Badge, TabBar } from "./ui/Shared";
 
 /* ═══ BACKTEST ENGINE ═══ */
@@ -360,6 +360,8 @@ function calculateMetrics(equityCurve, benchmarkCurves, benchmarkSyms, startCash
   const avgLoss = losers.length > 0 ? losers.reduce((a, t) => a + t.pnlPct, 0) / losers.length : 0;
   const stopLossHits = closedTrades.filter(t => t.reason === 'STOP_LOSS').length;
   const regimeExits = closedTrades.filter(t => t.reason === 'REGIME_EXIT').length;
+  const totalBuys = trades.filter(t => t.type === 'BUY').length;
+  const totalSells = closedTrades.length;
 
   // Monthly returns heatmap
   const monthlyReturns = {};
@@ -386,6 +388,7 @@ function calculateMetrics(equityCurve, benchmarkCurves, benchmarkSyms, startCash
     avgWin: Math.round(avgWin * 10) / 10,
     avgLoss: Math.round(avgLoss * 10) / 10,
     stopLossHits, regimeExits,
+    totalBuys, totalSells,
     drawdowns, monthlyPnl,
     regimeLog,
   };
@@ -432,26 +435,26 @@ const MiniChart = ({ data, benchmarks, benchmarkSyms, width = 700, height = 220 
     <svg width={width} height={height} style={{ display: 'block' }}>
       {yLabels.map((yl, i) => (
         <g key={i}>
-          <line x1={pad.l} y1={yl.y} x2={width - pad.r} y2={yl.y} stroke={T.b1} strokeWidth={1} />
-          <text x={pad.l - 4} y={yl.y + 3} textAnchor="end" fill={T.t3} fontSize={9} fontFamily={mono}>{yl.label}</text>
+          <line x1={pad.l} y1={yl.y} x2={width - pad.r} y2={yl.y} stroke={T.b.s} strokeWidth={1} />
+          <text x={pad.l - 4} y={yl.y + 3} textAnchor="end" fill={T.t.m} fontSize={9} fontFamily={mono}>{yl.label}</text>
         </g>
       ))}
       {/* Benchmark lines */}
       {Object.entries(benchPaths).map(([sym, path]) => (
-        <path key={sym} d={path} fill="none" stroke={BENCHMARKS[sym]?.color || T.t4} strokeWidth={1.5} opacity={0.5} />
+        <path key={sym} d={path} fill="none" stroke={BENCHMARKS[sym]?.color || T.t.f} strokeWidth={1.5} opacity={0.5} />
       ))}
       {/* APEX line */}
       <path d={path1} fill="none" stroke={T.accent} strokeWidth={2} />
       {xLabels.map((xl, i) => (
-        <text key={i} x={xl.x} y={height - 4} textAnchor="middle" fill={T.t3} fontSize={9} fontFamily={mono}>{xl.label}</text>
+        <text key={i} x={xl.x} y={height - 4} textAnchor="middle" fill={T.t.m} fontSize={9} fontFamily={mono}>{xl.label}</text>
       ))}
       {/* Legend */}
       <rect x={pad.l + 8} y={pad.t + 4} width={8} height={2} fill={T.accent} />
       <text x={pad.l + 20} y={pad.t + 8} fill={T.accent} fontSize={9} fontFamily={mono}>APEX</text>
       {Object.entries(benchPaths).map(([sym], i) => (
         <g key={sym}>
-          <rect x={pad.l + 60 + i * 80} y={pad.t + 4} width={8} height={2} fill={BENCHMARKS[sym]?.color || T.t4} />
-          <text x={pad.l + 72 + i * 80} y={pad.t + 8} fill={BENCHMARKS[sym]?.color || T.t4} fontSize={9} fontFamily={mono}>{BENCHMARKS[sym]?.label || sym}</text>
+          <rect x={pad.l + 60 + i * 80} y={pad.t + 4} width={8} height={2} fill={BENCHMARKS[sym]?.color || T.t.f} />
+          <text x={pad.l + 72 + i * 80} y={pad.t + 8} fill={BENCHMARKS[sym]?.color || T.t.f} fontSize={9} fontFamily={mono}>{BENCHMARKS[sym]?.label || sym}</text>
         </g>
       ))}
     </svg>
@@ -471,9 +474,9 @@ const DrawdownChart = ({ data, width = 700, height = 120 }) => {
 
   return (
     <svg width={width} height={height} style={{ display: 'block' }}>
-      <text x={pad.l - 4} y={pad.t + 3} textAnchor="end" fill={T.t3} fontSize={9} fontFamily={mono}>0%</text>
+      <text x={pad.l - 4} y={pad.t + 3} textAnchor="end" fill={T.t.m} fontSize={9} fontFamily={mono}>0%</text>
       <text x={pad.l - 4} y={pad.t + ch + 3} textAnchor="end" fill={T.r.m} fontSize={9} fontFamily={mono}>-{mx.toFixed(0)}%</text>
-      <line x1={pad.l} y1={pad.t} x2={width - pad.r} y2={pad.t} stroke={T.b1} strokeWidth={1} />
+      <line x1={pad.l} y1={pad.t} x2={width - pad.r} y2={pad.t} stroke={T.b.s} strokeWidth={1} />
       <path d={fillPath} fill={T.r.m + '15'} />
       <path d={path} fill="none" stroke={T.r.m} strokeWidth={1.5} />
     </svg>
@@ -507,9 +510,9 @@ const MonthlyHeatmap = ({ data }) => {
       <table style={{ borderCollapse: 'collapse', fontFamily: mono, fontSize: 9 }}>
         <thead>
           <tr>
-            <th style={{ padding: '3px 6px', color: T.t3, textAlign: 'right' }}></th>
-            {monthNames.map(m => <th key={m} style={{ padding: '3px 6px', color: T.t3, fontWeight: 400 }}>{m}</th>)}
-            <th style={{ padding: '3px 6px', color: T.t3, fontWeight: 400 }}>YR</th>
+            <th style={{ padding: '3px 6px', color: T.t.m, textAlign: 'right' }}></th>
+            {monthNames.map(m => <th key={m} style={{ padding: '3px 6px', color: T.t.m, fontWeight: 400 }}>{m}</th>)}
+            <th style={{ padding: '3px 6px', color: T.t.m, fontWeight: 400 }}>YR</th>
           </tr>
         </thead>
         <tbody>
@@ -531,7 +534,7 @@ const MonthlyHeatmap = ({ data }) => {
                     </td>
                   );
                 })}
-                <td style={{ padding: '3px 6px', textAlign: 'center', fontWeight: 700, color: yrTotal >= 0 ? T.g.m : T.r.m, borderLeft: `1px solid ${T.b1}` }}>
+                <td style={{ padding: '3px 6px', textAlign: 'center', fontWeight: 700, color: yrTotal >= 0 ? T.g.m : T.r.m, borderLeft: `1px solid ${T.b.s}` }}>
                   {(yrTotal > 0 ? '+' : '') + yrTotal.toFixed(1)}
                 </td>
               </tr>
@@ -635,7 +638,7 @@ export default function Backtester() {
                 type="number"
                 value={config[f.key]}
                 onChange={e => setConfig(prev => ({ ...prev, [f.key]: parseFloat(e.target.value) || 0 }))}
-                style={{ width: 72, padding: '3px 5px', borderRadius: 2, border: `1px solid ${T.b1}`, background: T.bg.deep, color: T.t.p, fontFamily: mono, fontSize: 10 }}
+                style={{ width: 72, padding: '3px 5px', borderRadius: 2, border: `1px solid ${T.b.s}`, background: T.bg.deep, color: T.t.p, fontFamily: mono, fontSize: 10 }}
               />
             </div>
           ))}
@@ -649,7 +652,7 @@ export default function Backtester() {
             <select
               value={periodIdx}
               onChange={e => setPeriodIdx(parseInt(e.target.value))}
-              style={{ padding: '3px 5px', borderRadius: 2, border: `1px solid ${T.b1}`, background: T.bg.deep, color: T.t.p, fontFamily: mono, fontSize: 10 }}
+              style={{ padding: '3px 5px', borderRadius: 2, border: `1px solid ${T.b.s}`, background: T.bg.deep, color: T.t.p, fontFamily: mono, fontSize: 10 }}
             >
               {PERIODS.map((p, i) => <option key={i} value={i}>{p.label}</option>)}
             </select>
@@ -664,7 +667,7 @@ export default function Backtester() {
                 onClick={() => toggleBenchmark(sym)}
                 style={{
                   padding: '2px 8px', borderRadius: 2, cursor: 'pointer',
-                  border: `1px solid ${selectedBenchmarks.includes(sym) ? info.color : T.b1}`,
+                  border: `1px solid ${selectedBenchmarks.includes(sym) ? info.color : T.b.s}`,
                   background: selectedBenchmarks.includes(sym) ? info.color + '20' : 'transparent',
                   color: selectedBenchmarks.includes(sym) ? info.color : T.t.m,
                   fontFamily: mono, fontSize: 9, fontWeight: 600,
@@ -680,7 +683,7 @@ export default function Backtester() {
             onClick={() => setRegimeFilter(!regimeFilter)}
             style={{
               padding: '2px 10px', borderRadius: 2, cursor: 'pointer',
-              border: `1px solid ${regimeFilter ? T.accent : T.b1}`,
+              border: `1px solid ${regimeFilter ? T.accent : T.b.s}`,
               background: regimeFilter ? T.accent + '20' : 'transparent',
               color: regimeFilter ? T.accent : T.t.m,
               fontFamily: mono, fontSize: 9, fontWeight: 600,
@@ -693,7 +696,7 @@ export default function Backtester() {
         {/* Row 3: Run button + progress */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {!running ? (
-            <button onClick={startBacktest} style={{
+            <button onClick={startBacktest} aria-label="Run backtest" style={{
               display: 'flex', alignItems: 'center', gap: 4,
               padding: '5px 14px', borderRadius: 2, border: 'none',
               background: T.accent, color: '#000', cursor: 'pointer',
@@ -702,7 +705,7 @@ export default function Backtester() {
               <Play size={11} /> RUN {BACKTEST_UNIVERSE.length} STOCKS &middot; {PERIODS[periodIdx].label}
             </button>
           ) : (
-            <button onClick={() => { abortRef.current?.abort(); setRunning(false); }} style={{
+            <button onClick={() => { abortRef.current?.abort(); setRunning(false); }} aria-label="Abort backtest" style={{
               display: 'flex', alignItems: 'center', gap: 4,
               padding: '5px 14px', borderRadius: 2, border: `1px solid ${T.r.m}`,
               background: 'transparent', color: T.r.m, cursor: 'pointer',
@@ -743,6 +746,8 @@ export default function Backtester() {
             {metricBox('Max DD', '-' + m.maxDD.toFixed(1) + '%', m.maxDD < 20 ? T.g.m : m.maxDD < 40 ? T.w.m : T.r.m)}
             {metricBox('Win Rate', m.winRate.toFixed(1) + '%', m.winRate > 55 ? T.g.m : m.winRate > 45 ? T.w.m : T.r.m)}
             {metricBox('Trades', m.totalTrades.toString(), T.t.p)}
+            {metricBox('Times Bought', m.totalBuys.toString(), T.a.blue)}
+            {metricBox('Times Sold', m.totalSells.toString(), T.a.cyan)}
             {metricBox('Stop Losses', m.stopLossHits.toString(), T.r.m)}
             {regimeFilter && metricBox('Regime Exits', (m.regimeExits || 0).toString(), T.w.m)}
             {regimeFilter && metricBox('Bull/Bear Wks', `${m.regimeLog?.bullWeeks || 0}/${m.regimeLog?.bearWeeks || 0}`, T.t.s)}
@@ -810,7 +815,7 @@ export default function Backtester() {
             <div style={{ maxHeight: 250, overflow: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: mono, fontSize: 9 }}>
                 <thead>
-                  <tr style={{ borderBottom: `1px solid ${T.b1}` }}>
+                  <tr style={{ borderBottom: `1px solid ${T.b.s}` }}>
                     {['Ticker', 'Reason', 'Entry', 'Exit', 'P&L', 'Date'].map(h => (
                       <th key={h} style={{ padding: '3px 6px', textAlign: 'left', color: T.t.m, fontWeight: 400, fontSize: 7, textTransform: 'uppercase', letterSpacing: 0.8 }}>{h}</th>
                     ))}
@@ -818,12 +823,12 @@ export default function Backtester() {
                 </thead>
                 <tbody>
                   {result.trades.filter(t => t.type === 'SELL').slice(-30).reverse().map((t, i) => (
-                    <tr key={i} style={{ borderBottom: `1px solid ${T.b1}10` }}>
+                    <tr key={i} style={{ borderBottom: `1px solid ${T.b.s}10` }}>
                       <td style={{ padding: '3px 6px', fontWeight: 600 }}>{t.ticker}</td>
                       <td style={{ padding: '3px 6px', color: t.reason === 'STOP_LOSS' ? T.r.m : t.reason === 'REGIME_EXIT' ? T.w.m : T.t.s }}>{t.reason}</td>
-                      <td style={{ padding: '3px 6px' }}>${t.entryPrice?.toFixed(2)}</td>
-                      <td style={{ padding: '3px 6px' }}>${t.exitPrice?.toFixed(2)}</td>
-                      <td style={{ padding: '3px 6px', color: t.pnlPct >= 0 ? T.g.m : T.r.m, fontWeight: 600 }}>{t.pnlPct >= 0 ? '+' : ''}{t.pnlPct?.toFixed(1)}%</td>
+                      <td style={{ padding: '3px 6px' }}>{D(t.entryPrice)}</td>
+                      <td style={{ padding: '3px 6px' }}>{D(t.exitPrice)}</td>
+                      <td style={{ padding: '3px 6px', color: t.pnlPct >= 0 ? T.g.m : T.r.m, fontWeight: 600 }}>{pct(t.pnlPct)}</td>
                       <td style={{ padding: '3px 6px', color: T.t.m }}>{new Date(t.exitDate).toLocaleDateString()}</td>
                     </tr>
                   ))}
@@ -837,7 +842,7 @@ export default function Backtester() {
       {/* Empty state */}
       {!result && !running && (
         <Card style={{ padding: 24, textAlign: 'center' }}>
-          <FlaskConical size={24} color={T.t4} style={{ marginBottom: 8 }} />
+          <FlaskConical size={24} color={T.t.f} style={{ marginBottom: 8 }} />
           <div style={{ fontFamily: mono, fontSize: 11, color: T.t.m, marginBottom: 4 }}>POINT-IN-TIME STRATEGY AUDIT</div>
           <div style={{ fontFamily: mono, fontSize: 8, color: T.t.f, maxWidth: 480, margin: '0 auto', lineHeight: 1.7 }}>
             Tests APEX scoring on {BACKTEST_UNIVERSE.length} stocks using only data available at each historical point.

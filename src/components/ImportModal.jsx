@@ -1,7 +1,7 @@
 // src/components/ImportModal.jsx — Import portfolio from screenshot or text paste
 import { useState, useRef, useCallback } from "react";
 import { X, Upload, ClipboardPaste, Image, FileText, Loader, Check, AlertTriangle } from "lucide-react";
-import { T, mono, display } from "../theme/tokens";
+import { T, mono } from "../theme/tokens";
 import { fetchPrice, isC } from "../api/finance";
 import { Btn } from "./ui/Shared";
 
@@ -161,11 +161,11 @@ const ImportModal = ({ onClose, onImport, toast }) => {
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={{ width: 520, maxWidth: '94vw', maxHeight: '85vh', overflow: 'auto', background: T.bg.card, border: `1px solid ${T.b1}`, borderRadius: 2, padding: 20, boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: 520, maxWidth: '94vw', maxHeight: '85vh', overflow: 'auto', background: T.bg.card, border: `1px solid ${T.b.s}`, borderRadius: 2, padding: 20, boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }}>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <div style={{ fontFamily: display, fontSize: 20, color: T.t1 }}>Import Portfolio</div>
-          <X size={16} style={{ color: T.t3, cursor: 'pointer' }} onClick={onClose} />
+          <div style={{ fontFamily: mono, fontSize: 20, color: T.t.p }}>Import Portfolio</div>
+          <X size={16} style={{ color: T.t.m, cursor: 'pointer' }} onClick={onClose} aria-label="Close modal" />
         </div>
 
         {/* ═══ STEP 1: INPUT ═══ */}
@@ -179,9 +179,9 @@ const ImportModal = ({ onClose, onImport, toast }) => {
               ].map(m => (
                 <button key={m.id} onClick={() => setMode(m.id)} style={{
                   flex: 1, padding: '8px 12px', borderRadius: 2, cursor: 'pointer',
-                  border: `1px solid ${mode === m.id ? T.accent : T.b1}`,
+                  border: `1px solid ${mode === m.id ? T.accent : T.b.s}`,
                   background: mode === m.id ? T.accent + '12' : 'transparent',
-                  color: mode === m.id ? T.accent : T.t3,
+                  color: mode === m.id ? T.accent : T.t.m,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                   fontFamily: mono, fontSize: 10, fontWeight: 600,
                 }}>
@@ -192,9 +192,9 @@ const ImportModal = ({ onClose, onImport, toast }) => {
 
             {mode === 'text' && (
               <>
-                <div style={{ fontFamily: mono, fontSize: 8, color: T.t3, marginBottom: 6, lineHeight: 1.6 }}>
+                <div style={{ fontFamily: mono, fontSize: 8, color: T.t.m, marginBottom: 6, lineHeight: 1.6 }}>
                   Copy your portfolio table from any broker (eToro, IBKR, Robinhood, Trading212, etc.) and paste below.
-                  <br />Format: <span style={{ color: T.t2 }}>TICKER &nbsp; QUANTITY &nbsp; AVG_PRICE</span> (one per line, tab/comma/space separated)
+                  <br />Format: <span style={{ color: T.t.s }}>TICKER &nbsp; QUANTITY &nbsp; AVG_PRICE</span> (one per line, tab/comma/space separated)
                 </div>
                 <textarea
                   value={text}
@@ -203,12 +203,12 @@ const ImportModal = ({ onClose, onImport, toast }) => {
                   placeholder={"WIX\t10\t185.00\nMRNA\t20\t45.50\nBTC\t0.15\t62000\nBAC\t50\t38.20\nPFE\t100\t26.80\nCSCO\t30\t48.50\nT\t80\t22.10\nICL.TA\t200\t19.50"}
                   style={{
                     width: '100%', height: 180, padding: 10, borderRadius: 2,
-                    background: T.bg.deep, border: `1px solid ${T.b1}`, color: T.t1,
+                    background: T.bg.deep, border: `1px solid ${T.b.s}`, color: T.t.p,
                     fontFamily: mono, fontSize: 11, resize: 'vertical', outline: 'none',
                     boxSizing: 'border-box', lineHeight: 1.8,
                   }}
                 />
-                <div style={{ fontFamily: mono, fontSize: 7, color: T.t4, marginTop: 4 }}>
+                <div style={{ fontFamily: mono, fontSize: 7, color: T.t.f, marginTop: 4 }}>
                   Tip: Ctrl+V to paste. If you paste a screenshot image, it will switch to image mode automatically.
                 </div>
                 <Btn primary onClick={parseText} style={{ width: '100%', justifyContent: 'center', marginTop: 10, padding: 10 }}>
@@ -219,7 +219,7 @@ const ImportModal = ({ onClose, onImport, toast }) => {
 
             {mode === 'image' && (
               <>
-                <div style={{ fontFamily: mono, fontSize: 8, color: T.t3, marginBottom: 6, lineHeight: 1.6 }}>
+                <div style={{ fontFamily: mono, fontSize: 8, color: T.t.m, marginBottom: 6, lineHeight: 1.6 }}>
                   Paste a screenshot (Ctrl+V) or upload an image of your portfolio.
                   <br />The system will attempt to extract holdings data.
                 </div>
@@ -230,17 +230,18 @@ const ImportModal = ({ onClose, onImport, toast }) => {
                   tabIndex={0}
                   style={{
                     width: '100%', minHeight: 160, padding: 20, borderRadius: 2,
-                    background: T.bg.deep, border: `2px dashed ${imageData ? T.accent : T.b1}`,
+                    background: T.bg.deep, border: `2px dashed ${imageData ? T.accent : T.b.s}`,
                     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                     cursor: 'pointer', boxSizing: 'border-box', outline: 'none',
                   }}
                   onClick={() => !imageData && fileRef.current?.click()}
+                  aria-label="Upload portfolio image"
                 >
                   {imageData ? (
                     <div style={{ width: '100%' }}>
                       <img src={imageData} alt="Portfolio screenshot" style={{ width: '100%', borderRadius: 2, marginBottom: 8 }} />
                       <button onClick={(e) => { e.stopPropagation(); setImageData(null); }} style={{
-                        background: 'transparent', border: `1px solid ${T.b1}`, color: T.t3,
+                        background: 'transparent', border: `1px solid ${T.b.s}`, color: T.t.m,
                         fontFamily: mono, fontSize: 9, padding: '4px 10px', borderRadius: 2, cursor: 'pointer',
                       }}>
                         Clear & try another
@@ -248,11 +249,11 @@ const ImportModal = ({ onClose, onImport, toast }) => {
                     </div>
                   ) : (
                     <>
-                      <Upload size={24} color={T.t4} style={{ marginBottom: 8 }} />
-                      <div style={{ fontFamily: mono, fontSize: 10, color: T.t3, textAlign: 'center' }}>
+                      <Upload size={24} color={T.t.f} style={{ marginBottom: 8 }} />
+                      <div style={{ fontFamily: mono, fontSize: 10, color: T.t.m, textAlign: 'center' }}>
                         Click to upload or press Ctrl+V to paste screenshot
                       </div>
-                      <div style={{ fontFamily: mono, fontSize: 8, color: T.t4, marginTop: 4 }}>
+                      <div style={{ fontFamily: mono, fontSize: 8, color: T.t.f, marginTop: 4 }}>
                         PNG, JPG, or clipboard image
                       </div>
                     </>
@@ -267,7 +268,7 @@ const ImportModal = ({ onClose, onImport, toast }) => {
                         <AlertTriangle size={10} style={{ verticalAlign: 'middle', marginRight: 4 }} />
                         Screenshot detected — manual extraction
                       </div>
-                      <div style={{ fontFamily: mono, fontSize: 8, color: T.t3, marginTop: 3 }}>
+                      <div style={{ fontFamily: mono, fontSize: 8, color: T.t.m, marginTop: 3 }}>
                         AI vision parsing requires an API key. For now, look at your screenshot above and type the holdings below:
                       </div>
                     </div>
@@ -277,7 +278,7 @@ const ImportModal = ({ onClose, onImport, toast }) => {
                       placeholder={"Type what you see in the screenshot:\nWIX  10  185.00\nMRNA  20  45.50\nBTC  0.15  62000"}
                       style={{
                         width: '100%', height: 120, padding: 10, borderRadius: 2,
-                        background: T.bg.deep, border: `1px solid ${T.b1}`, color: T.t1,
+                        background: T.bg.deep, border: `1px solid ${T.b.s}`, color: T.t.p,
                         fontFamily: mono, fontSize: 11, resize: 'vertical', outline: 'none',
                         boxSizing: 'border-box', lineHeight: 1.8,
                       }}
@@ -295,38 +296,38 @@ const ImportModal = ({ onClose, onImport, toast }) => {
         {/* ═══ STEP 2: REVIEW ═══ */}
         {step === 'review' && (
           <>
-            <div style={{ fontFamily: mono, fontSize: 9, color: T.t3, marginBottom: 10 }}>
+            <div style={{ fontFamily: mono, fontSize: 9, color: T.t.m, marginBottom: 10 }}>
               Found {parsed.length} holdings. Review and edit before importing:
             </div>
 
             <div style={{ maxHeight: 350, overflowY: 'auto', marginBottom: 12 }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: mono, fontSize: 10 }}>
                 <thead>
-                  <tr style={{ borderBottom: `1px solid ${T.b1}` }}>
+                  <tr style={{ borderBottom: `1px solid ${T.b.s}` }}>
                     {['Ticker', 'Quantity', 'Avg Price', ''].map(h => (
-                      <th key={h} style={{ padding: '4px 6px', textAlign: 'left', color: T.t3, fontSize: 7, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 400 }}>{h}</th>
+                      <th key={h} style={{ padding: '4px 6px', textAlign: 'left', color: T.t.m, fontSize: 7, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 400 }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {parsed.map((p, i) => (
-                    <tr key={i} style={{ borderBottom: `1px solid ${T.b1}10` }}>
+                    <tr key={i} style={{ borderBottom: `1px solid ${T.b.s}10` }}>
                       <td style={{ padding: '4px 6px' }}>
                         <input value={p.tk} onChange={e => updateParsed(i, 'tk', e.target.value)}
-                          style={{ width: 70, padding: '4px 6px', background: T.bg.deep, border: `1px solid ${T.b1}`, borderRadius: 2, color: T.t1, fontFamily: mono, fontSize: 11, fontWeight: 700, outline: 'none' }} />
+                          style={{ width: 70, padding: '4px 6px', background: T.bg.deep, border: `1px solid ${T.b.s}`, borderRadius: 2, color: T.t.p, fontFamily: mono, fontSize: 11, fontWeight: 700, outline: 'none' }} />
                       </td>
                       <td style={{ padding: '4px 6px' }}>
                         <input type="number" value={p.qty || ''} onChange={e => updateParsed(i, 'qty', e.target.value)}
                           placeholder="qty"
-                          style={{ width: 70, padding: '4px 6px', background: T.bg.deep, border: `1px solid ${T.b1}`, borderRadius: 2, color: T.t1, fontFamily: mono, fontSize: 11, outline: 'none' }} />
+                          style={{ width: 70, padding: '4px 6px', background: T.bg.deep, border: `1px solid ${T.b.s}`, borderRadius: 2, color: T.t.p, fontFamily: mono, fontSize: 11, outline: 'none' }} />
                       </td>
                       <td style={{ padding: '4px 6px' }}>
                         <input type="number" value={p.avg || ''} onChange={e => updateParsed(i, 'avg', e.target.value)}
                           placeholder="price"
-                          style={{ width: 80, padding: '4px 6px', background: T.bg.deep, border: `1px solid ${T.b1}`, borderRadius: 2, color: T.t1, fontFamily: mono, fontSize: 11, outline: 'none' }} />
+                          style={{ width: 80, padding: '4px 6px', background: T.bg.deep, border: `1px solid ${T.b.s}`, borderRadius: 2, color: T.t.p, fontFamily: mono, fontSize: 11, outline: 'none' }} />
                       </td>
                       <td style={{ padding: '4px 6px' }}>
-                        <button onClick={() => removeParsed(i)} style={{
+                        <button onClick={() => removeParsed(i)} aria-label="Remove entry" style={{
                           background: 'transparent', border: 'none', color: T.r.m, cursor: 'pointer', fontSize: 10, fontFamily: mono,
                         }}>✕</button>
                       </td>
@@ -349,8 +350,8 @@ const ImportModal = ({ onClose, onImport, toast }) => {
         {step === 'importing' && (
           <div style={{ textAlign: 'center', padding: '30px 10px' }}>
             <Loader size={24} color={T.accent} style={{ marginBottom: 12, animation: 'spin 1s linear infinite' }} />
-            <div style={{ fontFamily: display, fontSize: 16, color: T.t1, marginBottom: 6 }}>Importing Holdings</div>
-            <div style={{ fontFamily: mono, fontSize: 9, color: T.t3 }}>Fetching live prices for each position...</div>
+            <div style={{ fontFamily: mono, fontSize: 16, color: T.t.p, marginBottom: 6 }}>Importing Holdings</div>
+            <div style={{ fontFamily: mono, fontSize: 9, color: T.t.m }}>Fetching live prices for each position...</div>
           </div>
         )}
 

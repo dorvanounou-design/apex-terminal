@@ -2,7 +2,7 @@
 // Uses free CoinGecko data to approximate MVRV, exchange flows, and social signals
 import { useState, useEffect } from "react";
 import { Activity, ArrowUpRight, ArrowDownRight, AlertTriangle, TrendingUp } from "lucide-react";
-import { T, mono, display } from "../theme/tokens";
+import { T, mono, D, fmt } from "../theme/tokens";
 import { Card, Badge } from "./ui/Shared";
 import { CM } from "../api/finance";
 
@@ -30,7 +30,7 @@ function calcFlowProxy(vol24h, avgVol, priceChange24h) {
   if (!vol24h || !avgVol || avgVol === 0) return null;
   const rvol = vol24h / avgVol;
   let signal = 'NEUTRAL';
-  let color = T.t3;
+  let color = T.t.m;
   let detail = '';
 
   if (rvol > 2.0 && Math.abs(priceChange24h) < 2) {
@@ -61,7 +61,7 @@ function calcRealizedProxy(price, ath, athChangePct) {
   if (!ath || !athChangePct) return null;
   const drawdown = Math.abs(athChangePct);
   let zone = 'FAIR';
-  let color = T.t3;
+  let color = T.t.m;
 
   if (drawdown < 10) { zone = 'NEAR ATH'; color = '#f59e0b'; }
   else if (drawdown < 30) { zone = 'HEALTHY'; color = '#22c55e'; }
@@ -158,8 +158,8 @@ const CryptoOnChain = ({ holdings }) => {
     <Card style={{ borderLeft: `2px solid #06b6d4`, padding: '10px 12px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
         <div>
-          <div style={{ fontFamily: display, fontSize: 18, fontWeight: 600, color: T.t1 }}>On-Chain Pulse</div>
-          <div style={{ fontFamily: mono, fontSize: 7, color: T.t3, textTransform: 'uppercase', letterSpacing: 1.5 }}>
+          <div style={{ fontFamily: mono, fontSize: 18, fontWeight: 600, color: T.t.p }}>On-Chain Pulse</div>
+          <div style={{ fontFamily: mono, fontSize: 7, color: T.t.m, textTransform: 'uppercase', letterSpacing: 1.5 }}>
             Proxy signals • CoinGecko data • not Glassnode
           </div>
         </div>
@@ -167,23 +167,23 @@ const CryptoOnChain = ({ holdings }) => {
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 20, fontFamily: mono, fontSize: 10, color: T.t3 }}>Loading on-chain proxies...</div>
+        <div style={{ textAlign: 'center', padding: 20, fontFamily: mono, fontSize: 10, color: T.t.m }}>Loading on-chain proxies...</div>
       ) : signals.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 20, fontFamily: mono, fontSize: 10, color: T.t3 }}>No crypto data available</div>
+        <div style={{ textAlign: 'center', padding: 20, fontFamily: mono, fontSize: 10, color: T.t.m }}>No crypto data available</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {signals.map(s => (
-            <div key={s.tk} style={{ padding: '8px 10px', background: T.bg.deep, borderRadius: 2, border: `1px solid ${T.b1}` }}>
+            <div key={s.tk} style={{ padding: '8px 10px', background: T.bg.deep, borderRadius: 2, border: `1px solid ${T.b.s}` }}>
               {/* Header */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   {s.img && <img src={s.img} alt="" style={{ width: 16, height: 16, borderRadius: 2 }} />}
-                  <span style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: T.t1 }}>{s.tk}</span>
-                  <span style={{ fontFamily: mono, fontSize: 9, color: T.t3 }}>{s.nm}</span>
+                  <span style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: T.t.p }}>{s.tk}</span>
+                  <span style={{ fontFamily: mono, fontSize: 9, color: T.t.m }}>{s.nm}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <MiniSpark data={s.sparkline} />
-                  <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 600, color: T.t1 }}>${s.price?.toLocaleString()}</span>
+                  <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 600, color: T.t.p }}>{D(s.price)}</span>
                 </div>
               </div>
 
@@ -191,41 +191,41 @@ const CryptoOnChain = ({ holdings }) => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
                 {/* MVRV Proxy */}
                 <div style={{ padding: '4px 6px', borderRadius: 2, background: T.bg.el }}>
-                  <div style={{ fontFamily: mono, fontSize: 6, color: T.t4, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 2 }}>MVRV Proxy</div>
+                  <div style={{ fontFamily: mono, fontSize: 6, color: T.t.f, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 2 }}>MVRV Proxy</div>
                   {s.mvrv ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                       <SignalDot color={s.mvrv.color} />
                       <span style={{ fontFamily: mono, fontSize: 9, fontWeight: 600, color: s.mvrv.color }}>{s.mvrv.zone}</span>
                     </div>
-                  ) : <span style={{ fontFamily: mono, fontSize: 9, color: T.t4 }}>—</span>}
+                  ) : <span style={{ fontFamily: mono, fontSize: 9, color: T.t.f }}>—</span>}
                 </div>
 
                 {/* Exchange Flow Proxy */}
                 <div style={{ padding: '4px 6px', borderRadius: 2, background: T.bg.el }}>
-                  <div style={{ fontFamily: mono, fontSize: 6, color: T.t4, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 2 }}>Flow Signal</div>
+                  <div style={{ fontFamily: mono, fontSize: 6, color: T.t.f, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 2 }}>Flow Signal</div>
                   {s.flow ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                       <SignalDot color={s.flow.color} />
                       <span style={{ fontFamily: mono, fontSize: 9, fontWeight: 600, color: s.flow.color }}>{s.flow.signal}</span>
                     </div>
-                  ) : <span style={{ fontFamily: mono, fontSize: 9, color: T.t4 }}>—</span>}
+                  ) : <span style={{ fontFamily: mono, fontSize: 9, color: T.t.f }}>—</span>}
                 </div>
 
                 {/* Realized Proxy */}
                 <div style={{ padding: '4px 6px', borderRadius: 2, background: T.bg.el }}>
-                  <div style={{ fontFamily: mono, fontSize: 6, color: T.t4, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 2 }}>ATH Zone</div>
+                  <div style={{ fontFamily: mono, fontSize: 6, color: T.t.f, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 2 }}>ATH Zone</div>
                   {s.realized ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                       <SignalDot color={s.realized.color} />
                       <span style={{ fontFamily: mono, fontSize: 9, fontWeight: 600, color: s.realized.color }}>{s.realized.zone}</span>
                     </div>
-                  ) : <span style={{ fontFamily: mono, fontSize: 9, color: T.t4 }}>—</span>}
+                  ) : <span style={{ fontFamily: mono, fontSize: 9, color: T.t.f }}>—</span>}
                 </div>
               </div>
 
               {/* Health score bar */}
               <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ flex: 1, height: 3, background: T.b1, borderRadius: 0 }}>
+                <div style={{ flex: 1, height: 3, background: T.b.s, borderRadius: 0 }}>
                   <div style={{
                     width: `${s.health}%`, height: '100%',
                     background: s.health >= 65 ? '#22c55e' : s.health >= 45 ? '#f59e0b' : '#ef4444',
@@ -238,7 +238,7 @@ const CryptoOnChain = ({ holdings }) => {
 
               {/* Flow detail */}
               {s.flow?.detail && (
-                <div style={{ fontFamily: mono, fontSize: 7, color: T.t3, marginTop: 4, fontStyle: 'italic' }}>
+                <div style={{ fontFamily: mono, fontSize: 7, color: T.t.m, marginTop: 4, fontStyle: 'italic' }}>
                   {s.flow.detail}
                 </div>
               )}

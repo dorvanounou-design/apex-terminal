@@ -1,7 +1,7 @@
 // src/components/Heatmap.jsx — APEX Market Heatmap (Treemap)
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { RefreshCw, AlertTriangle } from "lucide-react";
-import { T, mono, sans } from "../theme/tokens";
+import { T, mono, sans, fmt, pct } from "../theme/tokens";
 import { Badge, TabBar } from "./ui/Shared";
 import { fetchApexScreener, UNIVERSE_CATEGORIES } from "../api/finance";
 
@@ -180,7 +180,7 @@ const Heatmap = () => {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <h2 style={{ fontSize: 16, fontFamily: sans, fontWeight: 700, color: T.t.p, margin: 0 }}>Market Heatmap</h2>
+          <h2 style={{ fontSize: 16, fontFamily: mono, fontWeight: 700, color: T.t.p, margin: 0 }}>Market Heatmap</h2>
           <Badge color={T.accent}>{filtered.length}</Badge>
           {loading && <span style={{ fontSize: 10, fontFamily: mono, color: T.t.m }}>
             Loading {progress.done}/{progress.total}...
@@ -191,8 +191,8 @@ const Heatmap = () => {
           <button onClick={loadData} disabled={loading} style={{
             display: 'flex', alignItems: 'center', gap: 4,
             padding: '5px 10px', borderRadius: 5, border: `1px solid ${T.b.s}`,
-            background: 'transparent', color: T.t.s, cursor: 'pointer', fontFamily: sans, fontSize: 11,
-          }}>
+            background: 'transparent', color: T.t.s, cursor: 'pointer', fontFamily: mono, fontSize: 11,
+          }} aria-label="Refresh heatmap">
             <RefreshCw size={12} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
           </button>
         </div>
@@ -205,13 +205,13 @@ const Heatmap = () => {
             padding: '3px 8px', borderRadius: 4, border: `1px solid ${cat === category ? T.accent : T.b.s}`,
             background: cat === category ? T.accentDim : 'transparent',
             color: cat === category ? T.accent : T.t.m,
-            cursor: 'pointer', fontFamily: sans, fontSize: 9, fontWeight: 500, whiteSpace: 'nowrap',
-          }}>{cat}</button>
+            cursor: 'pointer', fontFamily: mono, fontSize: 9, fontWeight: 500, whiteSpace: 'nowrap',
+          }} aria-label={cat + ' filter'}>{cat}</button>
         ))}
       </div>
 
       {/* Legend */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 6, fontSize: 9, fontFamily: sans, color: T.t.m }}>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 6, fontSize: 9, fontFamily: mono, color: T.t.m }}>
         {mode === 'Performance' && <>
           <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: '#059669', marginRight: 3 }} />+5%</span>
           <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: '#34d399', marginRight: 3 }} />+0-5%</span>
@@ -241,6 +241,14 @@ const Heatmap = () => {
             <div style={{ width: 200, height: 4, borderRadius: 2, background: T.bg.el }}>
               <div style={{ width: `${progress.total > 0 ? (progress.done / progress.total) * 100 : 0}%`, height: '100%', borderRadius: 2, background: T.accent, transition: 'width 0.3s' }} />
             </div>
+          </div>
+        )}
+
+        {!loading && rects.length === 0 && (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 8 }}>
+            <span style={{ fontFamily: mono, fontSize: 12, color: T.t.m }}>
+              No data to display. Try adjusting filters or refreshing.
+            </span>
           </div>
         )}
 
@@ -316,9 +324,9 @@ const Heatmap = () => {
             <div style={{ fontFamily: sans, fontSize: 10, color: T.t.s, marginBottom: 4 }}>{tooltip.stock.name}</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 8px', fontSize: 9 }}>
               <span style={{ color: T.t.m }}>Price</span>
-              <span style={{ fontFamily: mono, color: T.t.p }}>{tooltip.stock.currency === 'ILA' ? '₪' : '$'}{tooltip.stock.price?.toFixed(2)}</span>
+              <span style={{ fontFamily: mono, color: T.t.p }}>{tooltip.stock.currency === 'ILA' ? '₪' : '$'}{fmt(tooltip.stock.price)}</span>
               <span style={{ color: T.t.m }}>Change</span>
-              <span style={{ fontFamily: mono, color: tooltip.stock.changePct >= 0 ? T.g.m : T.r.m }}>{tooltip.stock.changePct >= 0 ? '+' : ''}{tooltip.stock.changePct?.toFixed(2)}%</span>
+              <span style={{ fontFamily: mono, color: tooltip.stock.changePct >= 0 ? T.g.m : T.r.m }}>{pct(tooltip.stock.changePct)}</span>
               <span style={{ color: T.t.m }}>APEX Score</span>
               <span style={{ fontFamily: mono, color: T.accent }}>{tooltip.stock.apexScore?.toFixed(1)}</span>
               <span style={{ color: T.t.m }}>Signal</span>
