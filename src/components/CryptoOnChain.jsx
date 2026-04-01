@@ -1,10 +1,60 @@
 import { useState, useEffect } from "react";
-import { Activity, ArrowDownRight, ArrowUpRight, Waves } from "lucide-react";
+import { Activity, ArrowDownRight, ArrowUpRight, Waves, TrendingUp, Shield, Layers } from "lucide-react";
 import { T, mono, D } from "../theme/tokens";
 import { Card } from "./ui/Shared";
 import { CM } from "../api/finance";
 
 const CG = "https://api.coingecko.com/api/v3";
+const BLOCKCHAIN = "/blockchain/charts";
+const DEFILLAMA = "/llama";
+const DEFILLAMA_STABLES = "/llama-stables";
+
+/* ── Macro fetchers (free, no API key) ── */
+
+async function fetchBtcFundamentals() {
+  try {
+    const [hashRes, minerRes, priceRes] = await Promise.all([
+      fetch(`${BLOCKCHAIN}/hash-rate?timespan=30days&format=json&cors=true`),
+      fetch(`${BLOCKCHAIN}/miners-revenue?timespan=30days&format=json&cors=true`),
+      fetch(`${BLOCKCHAIN}/market-price?timespan=30days&format=json&cors=true`),
+    ]);
+    const [hash, miner, price] = await Promise.all([
+      hashRes.ok ? hashRes.json() : null,
+      minerRes.ok ? minerRes.json() : null,
+      priceRes.ok ? priceRes.json() : null,
+    ]);
+    const latest = (d) => d?.values?.length ? d.values[d.values.length - 1].y : null;
+    const prev = (d) => d?.values?.length > 7 ? d.values[d.values.length - 8].y : null;
+    const hashRate = latest(hash);
+    const hashPrev = prev(hash);
+    const minerRev = latest(miner);
+    const minerPrev = prev(miner);
+    return {
+      hashRate, hashChange: hashPrev ? ((hashRate - hashPrev) / hashPrev * 100) : null,
+      minerRev, minerChange: minerPrev ? ((minerRev - minerPrev) / minerPrev * 100) : null,
+      hashUnit: hash?.unit || "TH/s",
+    };
+  } catch { return null; }
+}
+
+async function fetchDefiMacro() {
+  try {
+    const [tvlRes, stableRes] = await Promise.all([
+      fetch(`${DEFILLAMA}/v2/historicalChainTvl`),
+      fetch(`${DEFILLAMA_STABLES}/stablecoincharts/all?stablecoin=1`), // USDT as proxy
+    ]);
+    const tvlData = tvlRes.ok ? await tvlRes.json() : null;
+    const stableData = stableRes.ok ? await stableRes.json() : null;
+    const tvlNow = tvlData?.length ? tvlData[tvlData.length - 1].tvl : null;
+    const tvl7d = tvlData?.length > 7 ? tvlData[tvlData.length - 8].tvl : null;
+    const stableNow = stableData?.length ? stableData[stableData.length - 1].totalCirculating?.peggedUSD : null;
+    const stable7d = stableData?.length > 7 ? stableData[stableData.length - 8].totalCirculating?.peggedUSD : null;
+    return {
+      tvl: tvlNow, tvlChange: tvl7d ? ((tvlNow - tvl7d) / tvl7d * 100) : null,
+      stableMcap: stableNow, stableChange: stable7d ? ((stableNow - stable7d) / stable7d * 100) : null,
+    };
+  } catch { return null; }
+}
 
 function calcMVRVProxy(mc, vol24h) {
   if (!mc || !vol24h || vol24h === 0) return null;
@@ -129,8 +179,13 @@ const coverageCard = (label, value, color) => ({
   color,
 });
 
+const fmtB = (n) => n == null ? "—" : n >= 1e12 ? `$${(n/1e12).toFixed(1)}T` : n >= 1e9 ? `$${(n/1e9).toFixed(1)}B` : n >= 1e6 ? `$${(n/1e6).toFixed(1)}M` : `$${n.toLocaleString()}`;
+const fmtHash = (n) => n == null ? "—" : n >= 1e6 ? `${(n/1e6).toFixed(0)} EH/s` : n >= 1e3 ? `${(n/1e3).toFixed(0)} PH/s` : `${n.toFixed(0)} TH/s`;
+const fmtChg = (n) => n == null ? "" : `${n >= 0 ? "+" : ""}${n.toFixed(1)}% 7d`;
+
 const CryptoOnChain = ({ holdings }) => {
   const [signals, setSignals] = useState([]);
+  const [macro, setMacro] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const cryptoTickers = holdings
@@ -143,8 +198,13 @@ const CryptoOnChain = ({ holdings }) => {
       return;
     }
     setLoading(true);
-    fetchCryptoSignals(cryptoTickers).then((rows) => {
+    Promise.all([
+      fetchCryptoSignals(cryptoTickers),
+      fetchBtcFundamentals(),
+      fetchDefiMacro(),
+    ]).then(([rows, btc, defi]) => {
       setSignals(rows);
+      setMacro({ btc, defi });
       setLoading(false);
     });
   }, [cryptoTickers.join(",")]);
@@ -157,7 +217,7 @@ const CryptoOnChain = ({ holdings }) => {
         <div>
           <div style={{ fontFamily: mono, fontSize: 18, fontWeight: 600, color: T.t.p }}>Crypto Intelligence Desk</div>
           <div style={{ fontFamily: mono, fontSize: 7, color: T.t.m, textTransform: "uppercase", letterSpacing: 1.5 }}>
-            Proxy tape read using free feeds, not true Glassnode-grade on-chain coverage
+            CoinGecko per-coin + Blockchain.info BTC on-chain + DeFiLlama macro — free tier, no API keys
           </div>
         </div>
         <Activity size={14} color={T.a.cyan} opacity={0.55} />
@@ -165,9 +225,9 @@ const CryptoOnChain = ({ holdings }) => {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, marginBottom: 12 }}>
         {[
-          coverageCard("Current stack", "CoinGecko market structure and volume data", T.a.blue),
-          coverageCard("Good for", "Trend, participation, rough overheating and recovery reads", T.g.m),
-          coverageCard("Still missing", "Exchange balances, SOPR, real MVRV, whale and entity-level flows", T.r.m),
+          coverageCard("Data sources", "CoinGecko per-coin + Blockchain.info BTC on-chain + DeFiLlama macro", T.a.blue),
+          coverageCard("Good for", "Trend, participation, hash rate health, DeFi TVL shifts, stablecoin flows", T.g.m),
+          coverageCard("Still missing", "Exchange balances, SOPR, real MVRV, whale-level flows (need CryptoQuant paid)", T.r.m),
         ].map((row) => (
           <div key={row.label} style={{ padding: "10px 12px", borderRadius: T.rad.md, background: T.bg.deep, border: `1px solid ${row.color}20` }}>
             <div style={{ fontFamily: mono, fontSize: 7, color: row.color, textTransform: "uppercase", letterSpacing: 1.1, marginBottom: 5 }}>{row.label}</div>
@@ -175,6 +235,60 @@ const CryptoOnChain = ({ holdings }) => {
           </div>
         ))}
       </div>
+
+      {/* ── Macro On-Chain Panel ── */}
+      {macro && (macro.btc || macro.defi) && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 8, marginBottom: 12 }}>
+          {macro.btc?.hashRate != null && (
+            <div style={{ padding: "10px 12px", borderRadius: T.rad.md, background: T.bg.el, border: `1px solid ${T.a.cyan}20` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 5 }}>
+                <Shield size={10} color={T.a.cyan} />
+                <span style={{ fontFamily: mono, fontSize: 7, color: T.a.cyan, textTransform: "uppercase", letterSpacing: 1 }}>BTC Hash Rate</span>
+              </div>
+              <div style={{ fontFamily: mono, fontSize: 12, color: T.t.p, fontWeight: 700 }}>{fmtHash(macro.btc.hashRate)}</div>
+              {macro.btc.hashChange != null && (
+                <div style={{ fontFamily: mono, fontSize: 8, color: macro.btc.hashChange >= 0 ? T.g.m : T.r.m, marginTop: 2 }}>{fmtChg(macro.btc.hashChange)}</div>
+              )}
+            </div>
+          )}
+          {macro.btc?.minerRev != null && (
+            <div style={{ padding: "10px 12px", borderRadius: T.rad.md, background: T.bg.el, border: `1px solid ${T.accent}20` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 5 }}>
+                <Layers size={10} color={T.accent} />
+                <span style={{ fontFamily: mono, fontSize: 7, color: T.accent, textTransform: "uppercase", letterSpacing: 1 }}>Miner Revenue</span>
+              </div>
+              <div style={{ fontFamily: mono, fontSize: 12, color: T.t.p, fontWeight: 700 }}>{fmtB(macro.btc.minerRev)}</div>
+              {macro.btc.minerChange != null && (
+                <div style={{ fontFamily: mono, fontSize: 8, color: macro.btc.minerChange >= 0 ? T.g.m : T.r.m, marginTop: 2 }}>{fmtChg(macro.btc.minerChange)}</div>
+              )}
+            </div>
+          )}
+          {macro.defi?.tvl != null && (
+            <div style={{ padding: "10px 12px", borderRadius: T.rad.md, background: T.bg.el, border: `1px solid #8b5cf620` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 5 }}>
+                <TrendingUp size={10} color="#8b5cf6" />
+                <span style={{ fontFamily: mono, fontSize: 7, color: "#8b5cf6", textTransform: "uppercase", letterSpacing: 1 }}>DeFi TVL</span>
+              </div>
+              <div style={{ fontFamily: mono, fontSize: 12, color: T.t.p, fontWeight: 700 }}>{fmtB(macro.defi.tvl)}</div>
+              {macro.defi.tvlChange != null && (
+                <div style={{ fontFamily: mono, fontSize: 8, color: macro.defi.tvlChange >= 0 ? T.g.m : T.r.m, marginTop: 2 }}>{fmtChg(macro.defi.tvlChange)}</div>
+              )}
+            </div>
+          )}
+          {macro.defi?.stableMcap != null && (
+            <div style={{ padding: "10px 12px", borderRadius: T.rad.md, background: T.bg.el, border: `1px solid #22c55e20` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 5 }}>
+                <Waves size={10} color="#22c55e" />
+                <span style={{ fontFamily: mono, fontSize: 7, color: "#22c55e", textTransform: "uppercase", letterSpacing: 1 }}>Stablecoin Supply</span>
+              </div>
+              <div style={{ fontFamily: mono, fontSize: 12, color: T.t.p, fontWeight: 700 }}>{fmtB(macro.defi.stableMcap)}</div>
+              {macro.defi.stableChange != null && (
+                <div style={{ fontFamily: mono, fontSize: 8, color: macro.defi.stableChange >= 0 ? T.g.m : T.r.m, marginTop: 2 }}>{fmtChg(macro.defi.stableChange)}</div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <div style={{ textAlign: "center", padding: 22, fontFamily: mono, fontSize: 10, color: T.t.m }}>Loading crypto desk...</div>

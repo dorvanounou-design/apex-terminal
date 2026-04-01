@@ -21,6 +21,21 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/yfweb/, ''),
         cookieDomainRewrite: 'localhost',
       },
+      '/blockchain': {
+        target: 'https://api.blockchain.info',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/blockchain/, ''),
+      },
+      '/llama': {
+        target: 'https://api.llama.fi',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/llama/, ''),
+      },
+      '/llama-stables': {
+        target: 'https://stablecoins.llama.fi',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/llama-stables/, ''),
+      },
     },
   },
 })
