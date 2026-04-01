@@ -1,13 +1,12 @@
 // src/App.jsx — APEX Obsidian Shell
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Briefcase, Crosshair, Lightbulb, Shield, Eye, Globe, ChevronLeft, ChevronRight, LayoutGrid, FlaskConical, Search, Command } from "lucide-react";
-import { T, mono, sans } from "./theme/tokens";
+import { Briefcase, Crosshair, Lightbulb, Shield, Eye, Globe, ChevronLeft, ChevronRight, FlaskConical, Search } from "lucide-react";
+import { T, mono, sans, display } from "./theme/tokens";
 import { useToasts } from "./hooks/useToasts";
 import { Toasts, ErrorBoundary } from "./components/ui/Shared";
 import Portfolio from "./components/Portfolio";
 import Scanner from "./components/Scanner";
 import Recommendations from "./components/Recommendations";
-import Heatmap from "./components/Heatmap";
 import Watchlists from "./components/Watchlists";
 import RiskMod from "./components/Risk";
 import MarketMod from "./components/Market";
@@ -17,7 +16,6 @@ const NAV = [
   { id: "portfolio", lb: "Portfolio", ic: Briefcase },
   { id: "scanner", lb: "Scanner", ic: Crosshair },
   { id: "recs", lb: "Signals", ic: Lightbulb },
-  { id: "heatmap", lb: "Heatmap", ic: LayoutGrid },
   { id: "watch", lb: "Watchlists", ic: Eye },
   { id: "risk", lb: "Risk", ic: Shield },
   { id: "market", lb: "Market", ic: Globe },
@@ -104,7 +102,6 @@ export default function App() {
       case "portfolio": return <Portfolio holdings={holdings} setHoldings={setHoldings} cash={cash} setCash={setCash} toast={toast} />;
       case "scanner": return <Scanner toast={toast} />;
       case "recs": return <Recommendations toast={toast} />;
-      case "heatmap": return <Heatmap />;
       case "watch": return <Watchlists holdings={holdings} toast={toast} />;
       case "risk": return <RiskMod holdings={holdings} cash={cash} />;
       case "market": return <MarketMod />;
@@ -114,9 +111,10 @@ export default function App() {
   };
 
   return (
-    <div style={{ display: "flex", height: "100vh", width: "100vw", overflow: "hidden", background: T.bg.base, color: T.t.p, fontFamily: mono }}>
+    <div style={{ position: "relative", display: "flex", height: "100vh", width: "100vw", overflow: "hidden", background: T.fx.shell, color: T.t.p, fontFamily: sans }}>
       <style>{`
         *{box-sizing:border-box;margin:0;padding:0}
+        body{background:${T.bg.base};color:${T.t.p};font-family:${sans}}
         ::-webkit-scrollbar{width:4px;height:4px}
         ::-webkit-scrollbar-track{background:transparent}
         ::-webkit-scrollbar-thumb{background:${T.b1};border-radius:4px}
@@ -129,10 +127,47 @@ export default function App() {
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
         @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
         @keyframes slideIn{from{transform:translateX(20px);opacity:0}to{transform:translateX(0);opacity:1}}
+        @keyframes shellFloat{0%,100%{transform:translate3d(0,0,0)}50%{transform:translate3d(0,-14px,0)}}
         .me{animation:fadeIn 0.2s ease-out}
         @media(max-width:900px){nav{position:fixed!important;z-index:100;height:100vh}}
         @media(max-width:640px){.me table{font-size:9px!important}.me table th,.me table td{padding:4px 4px!important}}
       `}</style>
+      <div style={{
+        position: "absolute",
+        inset: 0,
+        pointerEvents: "none",
+        background: `
+          linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px),
+          linear-gradient(180deg, rgba(255,255,255,0.03) 1px, transparent 1px)
+        `,
+        backgroundSize: "140px 140px",
+        maskImage: "linear-gradient(180deg, rgba(0,0,0,0.45), transparent 88%)",
+        opacity: 0.2,
+      }} />
+      <div style={{
+        position: "absolute",
+        top: -120,
+        right: -80,
+        width: 360,
+        height: 360,
+        borderRadius: "50%",
+        background: "radial-gradient(circle, rgba(99,230,255,0.18), transparent 62%)",
+        filter: "blur(24px)",
+        pointerEvents: "none",
+        animation: "shellFloat 12s ease-in-out infinite",
+      }} />
+      <div style={{
+        position: "absolute",
+        bottom: -160,
+        left: -110,
+        width: 420,
+        height: 420,
+        borderRadius: "50%",
+        background: "radial-gradient(circle, rgba(6,214,160,0.14), transparent 62%)",
+        filter: "blur(34px)",
+        pointerEvents: "none",
+        animation: "shellFloat 16s ease-in-out infinite reverse",
+      }} />
       <Toasts toasts={toasts} />
 
       {/* Command Palette (Ctrl+K) */}
@@ -215,28 +250,30 @@ export default function App() {
 
       {/* Sidebar — Obsidian dark */}
       <nav style={{
-        width: col ? 54 : 180, flexShrink: 0, display: "flex", flexDirection: "column",
-        background: T.bg.deep, borderRight: `1px solid ${T.b.s}`,
+        width: col ? 58 : 194, flexShrink: 0, display: "flex", flexDirection: "column",
+        background: T.fx.panel, borderRight: `1px solid ${T.b.s}`,
+        boxShadow: "inset -1px 0 0 rgba(255,255,255,0.02)",
+        backdropFilter: "blur(18px)",
         transition: "width 0.25s ease",
       }}>
         {/* Brand */}
         <div style={{
-          padding: col ? "16px 12px" : "16px 18px",
+          padding: col ? "18px 13px" : "18px 18px",
           borderBottom: `1px solid ${T.b.s}`,
           display: "flex", alignItems: "center", gap: 10,
         }}>
           <div style={{
-            width: 30, height: 30, borderRadius: T.rad.sm,
-            background: `linear-gradient(135deg, ${T.accent}, ${T.accent2})`,
+            width: 34, height: 34, borderRadius: T.rad.md,
+            background: `linear-gradient(135deg, ${T.acid}, ${T.accent2})`,
             display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-            boxShadow: T.shadow.glow(T.accent),
+            boxShadow: `${T.shadow.glow(T.accent2)}, inset 0 1px 0 rgba(255,255,255,0.28)`,
           }}>
             <span style={{ fontFamily: mono, fontSize: 13, fontWeight: 800, color: '#06060a' }}>A</span>
           </div>
           {!col && (
             <div>
-              <span style={{ fontSize: 14, fontWeight: 800, color: T.t.p, fontFamily: mono, letterSpacing: "0.14em" }}>APEX</span>
-              <div style={{ fontSize: 7, color: T.t.f, letterSpacing: '0.25em', fontFamily: mono, marginTop: 1 }}>TERMINAL</div>
+              <span style={{ fontSize: 23, fontWeight: 600, color: T.t.p, fontFamily: display, letterSpacing: "0.08em", lineHeight: 0.9 }}>APEX</span>
+              <div style={{ fontSize: 7, color: T.t.f, letterSpacing: '0.28em', fontFamily: mono, marginTop: 3 }}>TRADER COCKPIT</div>
             </div>
           )}
         </div>
@@ -247,7 +284,7 @@ export default function App() {
             <button key={it.id} onClick={() => setMod(it.id)} aria-label={it.lb} style={{
               display: "flex", alignItems: "center", gap: 10, padding: "9px 12px",
               borderRadius: T.rad.sm, border: "none", cursor: "pointer", width: "100%", textAlign: "left",
-              background: a ? T.accent + '10' : "transparent",
+              background: a ? `linear-gradient(90deg, ${T.accent}18, ${T.accent}08)` : "transparent",
               color: a ? T.accent : T.t.m,
               transition: T.tr.fast,
               justifyContent: col ? "center" : "flex-start",
@@ -284,20 +321,29 @@ export default function App() {
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         {/* Header bar */}
         <header style={{
-          height: 42, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "0 20px", borderBottom: `1px solid ${T.b.s}`,
-          background: T.bg.deep,
+          height: 54, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "0 22px", borderBottom: `1px solid ${T.b.s}`,
+          background: "linear-gradient(180deg, rgba(8,10,16,0.94), rgba(8,10,16,0.86))",
+          backdropFilter: "blur(16px)",
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: T.accent, boxShadow: `0 0 8px ${T.accent}60`, animation: 'pulse 2s ease infinite' }} />
-            <span style={{ fontSize: 10, color: T.t.m, fontFamily: mono, letterSpacing: "0.12em", textTransform: "uppercase" }}>APEX TERMINAL</span>
+            <div style={{ width: 7, height: 7, borderRadius: '50%', background: T.acid, boxShadow: `0 0 12px ${T.acid}80`, animation: 'pulse 2s ease infinite' }} />
+            <span style={{ fontSize: 10, color: T.t.m, fontFamily: mono, letterSpacing: "0.18em", textTransform: "uppercase" }}>APEX TERMINAL</span>
             <span style={{
-              fontSize: 8, color: T.accent, fontFamily: mono, fontWeight: 600,
-              padding: '2px 6px', borderRadius: T.rad.pill, background: T.accent + '10',
-              border: `1px solid ${T.accent}20`,
-            }}>v3.0</span>
+              fontSize: 8, color: T.accent2, fontFamily: mono, fontWeight: 600,
+              padding: '3px 7px', borderRadius: T.rad.pill, background: T.accent2 + '12',
+              border: `1px solid ${T.accent2}24`,
+            }}>LIVE SHELL</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '7px 10px', borderRadius: T.rad.pill,
+              border: `1px solid ${T.b.s}`, background: T.bg.panel,
+            }}>
+              <span style={{ fontSize: 8, color: T.t.f, fontFamily: mono, textTransform: 'uppercase', letterSpacing: '0.14em' }}>Mode</span>
+              <span style={{ fontSize: 10, color: T.t.p, fontFamily: mono, fontWeight: 700 }}>{NAV.find(n => n.id === mod)?.lb}</span>
+            </div>
             <span style={{ fontSize: 10, color: T.t.f, fontFamily: mono }}>
               {clock.toLocaleDateString("en", { weekday: 'short', month: 'short', day: 'numeric' })}
             </span>
@@ -308,7 +354,7 @@ export default function App() {
         </header>
 
         {/* Module content */}
-        <main style={{ flex: 1, overflow: "auto", padding: 18 }}>
+        <main style={{ flex: 1, overflow: "auto", padding: 22 }}>
           <ErrorBoundary>
             <div key={mod} className="me">{render()}</div>
           </ErrorBoundary>

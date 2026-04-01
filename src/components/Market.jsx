@@ -1,9 +1,9 @@
 // src/components/Market.jsx — Live Market Overview v2
 import { useState, useEffect } from "react";
-import { Globe, TrendingUp, TrendingDown } from "lucide-react";
-import { T, mono, pc, pct, fmt, D } from "../theme/tokens";
+import { Globe, TrendingUp, TrendingDown, ShieldAlert, Waves } from "lucide-react";
+import { T, mono, display, pc, pct, fmt, D } from "../theme/tokens";
 import { fetchLiveIndices, _c } from "../api/finance";
-import { Card, Badge } from "./ui/Shared";
+import { Card } from "./ui/Shared";
 
 const CG = "https://api.coingecko.com/api/v3";
 
@@ -59,42 +59,15 @@ const MarketMod = () => {
     })();
   }, []);
 
-  // Semicircle Fear & Greed gauge
-  const FearGreedGauge = ({ value, classification }) => {
-    const c = value >= 75 ? T.g.m : value >= 55 ? '#34d399' : value >= 45 ? T.w.m : value >= 25 ? '#f87171' : T.r.m;
-    const label = classification || (value >= 75 ? "Extreme Greed" : value >= 55 ? "Greed" : value >= 45 ? "Neutral" : value >= 25 ? "Fear" : "Extreme Fear");
-    const angle = (value / 100) * 180;
-    const rad = 50;
-    const cx = 60, cy = 58;
-    // Arc endpoint
-    const endAngle = Math.PI - (angle * Math.PI / 180);
-    const endX = cx + rad * Math.cos(endAngle);
-    const endY = cy - rad * Math.sin(endAngle);
-    const largeArc = angle > 90 ? 1 : 0;
-
-    return (
-      <div style={{ textAlign: "center" }}>
-        <svg width={120} height={76} viewBox="0 0 120 76">
-          {/* Background arc */}
-          <path d={`M ${cx - rad} ${cy} A ${rad} ${rad} 0 0 1 ${cx + rad} ${cy}`}
-            fill="none" stroke={T.bg.deep} strokeWidth={8} strokeLinecap="round" />
-          {/* Value arc */}
-          <path d={`M ${cx - rad} ${cy} A ${rad} ${rad} 0 ${largeArc} 1 ${endX} ${endY}`}
-            fill="none" stroke={c} strokeWidth={8} strokeLinecap="round"
-            style={{ transition: 'all 0.6s ease' }} />
-          {/* Needle dot */}
-          <circle cx={endX} cy={endY} r={4} fill={c} stroke={T.bg.deep} strokeWidth={2} />
-          {/* Labels */}
-          <text x={cx - rad - 4} y={cy + 12} textAnchor="start" fill={T.t.f} fontSize={7} fontFamily="JetBrains Mono">0</text>
-          <text x={cx + rad + 4} y={cy + 12} textAnchor="end" fill={T.t.f} fontSize={7} fontFamily="JetBrains Mono">100</text>
-          {/* Center value */}
-          <text x={cx} y={cy - 8} textAnchor="middle" fill={c} fontSize={24} fontFamily="JetBrains Mono" fontWeight={700}>{value}</text>
-        </svg>
-        <div style={{ fontSize: 12, color: c, fontWeight: 700, marginTop: 2 }}>{label}</div>
-        <div style={{ fontSize: 9, color: T.t.m, marginTop: 2 }}>Fear & Greed Index</div>
-      </div>
-    );
+  const sentimentTone = (value, classification) => {
+    if (value >= 75) return { color: T.g.m, label: classification || "Extreme Greed", action: "Momentum is hot. Great for leaders, dangerous for late entries." };
+    if (value >= 55) return { color: "#34d399", label: classification || "Greed", action: "Risk appetite is healthy. Buy strength, but keep discipline." };
+    if (value >= 45) return { color: T.w.m, label: classification || "Neutral", action: "Tape is balanced. Focus on stock-specific edges." };
+    if (value >= 25) return { color: "#f87171", label: classification || "Fear", action: "Selective buying works better than broad chasing." };
+    return { color: T.r.m, label: classification || "Extreme Fear", action: "Good for watchlists and staged entries, not blind aggression." };
   };
+
+  const sentiment = fg ? sentimentTone(fg.value, fg.classification) : null;
 
   return (
     <div>
@@ -107,8 +80,8 @@ const MarketMod = () => {
           <Globe size={18} color={T.accent} />
         </div>
         <div>
-          <div style={{ fontFamily: mono, fontSize: 24, fontWeight: 600, color: T.t.p, lineHeight: 1 }}>Market Overview</div>
-          <div style={{ fontFamily: mono, fontSize: 8, color: T.t.m, textTransform: 'uppercase', letterSpacing: 1.5, marginTop: 2 }}>Live data &bull; indices + crypto global</div>
+          <div style={{ fontFamily: display, fontSize: 34, fontWeight: 600, color: T.t.p, lineHeight: 0.9, letterSpacing: '0.04em' }}>Market Overview</div>
+          <div style={{ fontFamily: mono, fontSize: 8, color: T.t.m, textTransform: 'uppercase', letterSpacing: 1.8, marginTop: 5 }}>Live data • indices + crypto global</div>
         </div>
       </div>
 
@@ -141,22 +114,57 @@ const MarketMod = () => {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 12 }}>
           {/* Sentiment */}
           <Card style={{ padding: 18 }}>
-            <div style={{ fontFamily: mono, fontSize: 16, color: T.t.p, marginBottom: 16, fontWeight: 600 }}>Crypto Sentiment</div>
-            <div style={{ display: "flex", justifyContent: "center", padding: '8px 0' }}>
-              {fg ? (
-                <FearGreedGauge value={fg.value} classification={fg.classification} />
-              ) : (
-                <div style={{ fontFamily: mono, fontSize: 10, color: T.t.m, padding: 24 }}>Unavailable</div>
-              )}
-            </div>
-            <div style={{ fontFamily: mono, fontSize: 8, color: T.t.f, textAlign: 'center', marginTop: 12 }}>
-              Source: alternative.me (crypto only)
+            <div style={{ fontFamily: mono, fontSize: 16, color: T.t.p, marginBottom: 14, fontWeight: 600 }}>Market Pulse</div>
+            {fg && sentiment ? (
+              <>
+                <div style={{
+                  padding: '12px 14px', borderRadius: T.rad.md, background: sentiment.color + '10',
+                  border: `1px solid ${sentiment.color}2a`, marginBottom: 10,
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
+                    <div>
+                      <div style={{ fontFamily: mono, fontSize: 8, color: sentiment.color, textTransform: 'uppercase', letterSpacing: '0.16em', marginBottom: 5 }}>Sentiment regime</div>
+                      <div style={{ fontFamily: mono, fontSize: 20, fontWeight: 700, color: sentiment.color }}>{sentiment.label}</div>
+                    </div>
+                    <div style={{ fontFamily: mono, fontSize: 28, fontWeight: 700, color: sentiment.color }}>{fg.value}</div>
+                  </div>
+                  <div style={{ fontFamily: mono, fontSize: 10, color: T.t.s, lineHeight: 1.6, marginTop: 8 }}>{sentiment.action}</div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 4, marginBottom: 10 }}>
+                  {[
+                    { label: 'Fear', min: 0, max: 24, color: T.r.m },
+                    { label: 'Risk-off', min: 25, max: 44, color: '#f87171' },
+                    { label: 'Neutral', min: 45, max: 54, color: T.w.m },
+                    { label: 'Risk-on', min: 55, max: 74, color: '#34d399' },
+                    { label: 'Heat', min: 75, max: 100, color: T.g.m },
+                  ].map((band) => {
+                    const active = fg.value >= band.min && fg.value <= band.max;
+                    return (
+                      <div key={band.label} style={{
+                        padding: '6px 4px',
+                        borderRadius: T.rad.sm,
+                        background: active ? band.color + '16' : T.bg.deep,
+                        border: `1px solid ${active ? band.color + '30' : T.b.s}`,
+                        textAlign: 'center',
+                      }}>
+                        <div style={{ fontFamily: mono, fontSize: 8, color: active ? band.color : T.t.f, fontWeight: 700 }}>{band.label}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <div style={{ fontFamily: mono, fontSize: 10, color: T.t.m, padding: 24 }}>Unavailable</div>
+            )}
+            <div style={{ fontFamily: mono, fontSize: 8, color: T.t.f, marginTop: 4 }}>
+              Source: alternative.me. Useful sentiment context, not trade-level crypto flow data.
             </div>
           </Card>
 
           {/* Crypto Global Stats */}
           <Card style={{ padding: 18 }}>
-            <div style={{ fontFamily: mono, fontSize: 16, color: T.t.p, marginBottom: 14, fontWeight: 600 }}>Crypto Global</div>
+            <div style={{ fontFamily: mono, fontSize: 16, color: T.t.p, marginBottom: 14, fontWeight: 600 }}>Crypto Desk</div>
             {global ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {[
@@ -172,16 +180,14 @@ const MarketMod = () => {
                     <span style={{ fontSize: 11, fontFamily: mono, color: c, fontWeight: 600 }}>{v}</span>
                   </div>
                 ))}
-                {/* Dominance bar */}
-                <div style={{ marginTop: 4 }}>
-                  <div style={{ height: 6, borderRadius: 3, background: T.bg.deep, overflow: 'hidden', display: 'flex' }}>
-                    <div style={{ width: `${global.btcDominance}%`, height: '100%', background: '#f7931a', transition: 'width 0.5s' }} />
-                    <div style={{ width: `${global.ethDominance}%`, height: '100%', background: '#627eea', transition: 'width 0.5s' }} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 6 }}>
+                  <div style={{ padding: '8px 9px', borderRadius: T.rad.sm, background: '#f7931a10', border: '1px solid #f7931a22' }}>
+                    <div style={{ fontFamily: mono, fontSize: 8, color: '#f7931a', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 4 }}>BTC dominance</div>
+                    <div style={{ fontFamily: mono, fontSize: 18, fontWeight: 700, color: '#f7931a' }}>{global.btcDominance.toFixed(1)}%</div>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
-                    <span style={{ fontSize: 8, color: '#f7931a', fontFamily: mono }}>BTC {global.btcDominance.toFixed(0)}%</span>
-                    <span style={{ fontSize: 8, color: '#627eea', fontFamily: mono }}>ETH {global.ethDominance.toFixed(0)}%</span>
-                    <span style={{ fontSize: 8, color: T.t.m, fontFamily: mono }}>Other {(100 - global.btcDominance - global.ethDominance).toFixed(0)}%</span>
+                  <div style={{ padding: '8px 9px', borderRadius: T.rad.sm, background: '#627eea10', border: '1px solid #627eea22' }}>
+                    <div style={{ fontFamily: mono, fontSize: 8, color: '#627eea', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 4 }}>ETH dominance</div>
+                    <div style={{ fontFamily: mono, fontSize: 18, fontWeight: 700, color: '#627eea' }}>{global.ethDominance.toFixed(1)}%</div>
                   </div>
                 </div>
               </div>
@@ -189,7 +195,38 @@ const MarketMod = () => {
               <div style={{ fontFamily: mono, fontSize: 10, color: T.t.m, padding: 24, textAlign: 'center' }}>Unavailable</div>
             )}
             <div style={{ fontFamily: mono, fontSize: 8, color: T.t.f, marginTop: 10 }}>
-              Source: CoinGecko &bull; Live
+              Source: CoinGecko. Good for market structure, not enough for true Glassnode-style on-chain intelligence.
+            </div>
+          </Card>
+
+          <Card style={{ padding: 18 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <ShieldAlert size={15} color={T.w.m} />
+              <div style={{ fontFamily: mono, fontSize: 16, color: T.t.p, fontWeight: 600 }}>Crypto Data Coverage</div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {[
+                ['Current', 'CoinGecko + Alternative.me', T.a.blue],
+                ['Good for', 'Price, market cap, volume, dominance, sentiment', T.g.m],
+                ['Missing', 'Exchange balances, SOPR, MVRV, whale flows, entity-level on-chain signals', T.r.m],
+              ].map(([label, value, color]) => (
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, paddingBottom: 6, borderBottom: `1px solid ${T.b.s}10` }}>
+                  <span style={{ fontFamily: mono, fontSize: 10, color: T.t.m }}>{label}</span>
+                  <span style={{ fontFamily: mono, fontSize: 10, color, fontWeight: 600, textAlign: 'right' }}>{value}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{
+              marginTop: 12, padding: '10px 12px', borderRadius: T.rad.md,
+              background: T.bg.deep, border: `1px solid ${T.b.s}`,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
+                <Waves size={13} color={T.accent} />
+                <span style={{ fontFamily: mono, fontSize: 9, color: T.accent, textTransform: 'uppercase', letterSpacing: '0.14em' }}>Why it feels thin</span>
+              </div>
+              <div style={{ fontFamily: mono, fontSize: 10, color: T.t.s, lineHeight: 1.6 }}>
+                Glassnode-style data is not in the app because that level of on-chain data comes from a dedicated keyed provider, not from the free market feeds this dashboard currently uses.
+              </div>
             </div>
           </Card>
         </div>

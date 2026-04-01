@@ -2,7 +2,7 @@
 import * as d3 from "d3";
 import { useState, useEffect, useRef } from "react";
 import { AlertTriangle, Bell, Check } from "lucide-react";
-import { T, mono, sans, pc } from "../../theme/tokens";
+import { T, mono, sans, display, pc } from "../../theme/tokens";
 
 /**
  * Morph — Animated number/text transition with vertical slide + fade.
@@ -47,17 +47,39 @@ export const Morph = ({ value, style = {}, duration = 280 }) => {
 };
 
 export const Card = ({ children, style = {}, onClick, glow }) => (
-  <div onClick={onClick} style={{
-    background: T.bg.card,
-    border: `1px solid ${T.b.s}`,
-    borderRadius: T.rad.md,
-    padding: 16,
-    overflow: "hidden",
-    cursor: onClick ? "pointer" : "default",
-    boxShadow: glow ? T.shadow.glow(glow) : T.shadow.sm,
-    transition: T.tr.base,
-    ...style,
-  }}>{children}</div>
+  <div
+    onClick={onClick}
+    style={{
+      position: "relative",
+      background: T.fx.card,
+      border: `1px solid ${T.b.s}`,
+      borderRadius: T.rad.lg,
+      padding: 16,
+      overflow: "hidden",
+      cursor: onClick ? "pointer" : "default",
+      boxShadow: glow ? T.shadow.glow(glow) : T.shadow.sm,
+      transition: T.tr.ceramic,
+      ...style,
+    }}
+  >
+    <div style={{
+      position: "absolute",
+      inset: 0,
+      pointerEvents: "none",
+      background: "linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 18%)",
+      opacity: 0.9,
+    }} />
+    <div style={{
+      position: "absolute",
+      top: 0,
+      left: 16,
+      right: 16,
+      height: 1,
+      background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)",
+      pointerEvents: "none",
+    }} />
+    <div style={{ position: "relative", zIndex: 1 }}>{children}</div>
+  </div>
 );
 
 /**
@@ -97,9 +119,10 @@ export const DriftCard = ({ children, style = {}, onClick, glow, intensity = 1 }
       }}
     >
       <div style={{
-        background: T.bg.card,
+        position: "relative",
+        background: T.fx.card,
         border: `1px solid ${T.b.s}`,
-        borderRadius: T.rad.md,
+        borderRadius: T.rad.lg,
         padding: 16,
         overflow: 'hidden',
         cursor: onClick ? 'pointer' : 'default',
@@ -108,26 +131,44 @@ export const DriftCard = ({ children, style = {}, onClick, glow, intensity = 1 }
           : (glow ? T.shadow.glow(glow) : T.shadow.sm),
         transform: `rotateX(${tilt.rx}deg) rotateY(${tilt.ry}deg) translateY(${hovering ? -3 : 0}px)`,
         transition: `transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.28s ease`,
-        // Ceramic top edge
         borderTop: hovering ? `1px solid rgba(255,255,255,0.12)` : `1px solid ${T.b.s}`,
         ...style,
-      }}>{children}</div>
+      }}>
+        <div style={{
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+          background: hovering
+            ? "radial-gradient(circle at 50% 0%, rgba(99,230,255,0.08), transparent 48%)"
+            : "linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0) 22%)",
+        }} />
+        <div style={{ position: "relative", zIndex: 1 }}>{children}</div>
+      </div>
     </div>
   );
 };
 
 export const Metric = ({ label, value, sub, subC, icon: I, bc }) => (
-  <DriftCard style={{ borderLeft: `3px solid ${bc || T.accent}`, borderRadius: 0, padding: '14px 16px' }} intensity={0.6}>
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+  <DriftCard
+    style={{
+      borderLeft: `3px solid ${bc || T.accent}`,
+      padding: '14px 16px',
+      minHeight: 108,
+    }}
+    intensity={0.6}
+  >
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
       <div>
-        <div style={{ color: T.t.m, fontSize: 9, fontFamily: mono, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 6 }}>{label}</div>
-        <div style={{ color: T.t.p, fontSize: 20, fontFamily: mono, fontWeight: 700, lineHeight: 1.1 }}>{value}</div>
-        {sub && <div style={{ color: subC || T.t.s, fontSize: 11, fontFamily: mono, marginTop: 4, fontWeight: 500 }}>{sub}</div>}
+        <div style={{ color: T.t.m, fontSize: 9, fontFamily: mono, textTransform: "uppercase", letterSpacing: 1.8, marginBottom: 8 }}>{label}</div>
+        <div style={{ color: T.t.p, fontSize: 24, fontFamily: mono, fontWeight: 700, lineHeight: 1.05, letterSpacing: -0.03 + "em" }}>{value}</div>
+        {sub && <div style={{ color: subC || T.t.s, fontSize: 11, fontFamily: sans, marginTop: 6, fontWeight: 500 }}>{sub}</div>}
       </div>
       {I && <div style={{
-        width: 32, height: 32, borderRadius: T.rad.sm,
-        background: (bc || T.accent) + '10',
+        width: 36, height: 36, borderRadius: T.rad.md,
+        background: `linear-gradient(180deg, ${(bc || T.accent) + '18'}, ${(bc || T.accent) + '08'})`,
+        border: `1px solid ${(bc || T.accent) + '2e'}`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
+        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.08), 0 8px 18px rgba(0,0,0,0.22)`,
       }}><I size={16} style={{ color: bc || T.accent, opacity: 0.7 }} /></div>}
     </div>
   </DriftCard>
@@ -136,11 +177,12 @@ export const Metric = ({ label, value, sub, subC, icon: I, bc }) => (
 export const Badge = ({ children, color = T.accent, style = {} }) => (
   <span style={{
     display: "inline-flex", alignItems: "center",
-    padding: "2px 8px", borderRadius: T.rad.pill,
+    padding: "3px 9px", borderRadius: T.rad.pill,
     fontSize: 10, fontFamily: mono, fontWeight: 600,
-    color, background: color + "10",
-    border: `1px solid ${color}20`,
-    textTransform: "uppercase", letterSpacing: 0.5,
+    color, background: `linear-gradient(180deg, ${color}18, ${color}0c)`,
+    border: `1px solid ${color}24`,
+    textTransform: "uppercase", letterSpacing: 0.7,
+    boxShadow: `inset 0 1px 0 rgba(255,255,255,0.06)`,
     ...style,
   }}>{children}</span>
 );
@@ -180,15 +222,25 @@ export const Spark = ({ data, w = 70, h = 24 }) => {
 };
 
 export const TabBar = ({ tabs, active, set }) => (
-  <div style={{ display: "flex", gap: 0, borderBottom: `1px solid ${T.b.s}`, flexWrap: "wrap" }}>
+  <div style={{
+    display: "flex",
+    gap: 4,
+    flexWrap: "wrap",
+    padding: 4,
+    border: `1px solid ${T.b.s}`,
+    borderRadius: T.rad.md,
+    background: T.bg.panel,
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
+  }}>
     {tabs.map(t => <button key={t} onClick={() => set(t)} style={{
-      padding: "8px 16px", border: "none", cursor: "pointer",
+      padding: "7px 12px", cursor: "pointer",
+      borderRadius: T.rad.sm,
       fontFamily: mono, fontSize: 10, fontWeight: active === t ? 700 : 400,
-      background: "transparent",
+      background: active === t ? `linear-gradient(180deg, ${T.accent}22, ${T.accent}10)` : "transparent",
       color: active === t ? T.accent : T.t.m,
-      borderBottom: active === t ? `2px solid ${T.accent}` : '2px solid transparent',
-      textTransform: "uppercase", letterSpacing: 0.8,
-      transition: T.tr.fast,
+      border: active === t ? `1px solid ${T.accent}2d` : '1px solid transparent',
+      textTransform: "uppercase", letterSpacing: 0.9,
+      transition: T.tr.ceramic,
     }}>{t}</button>)}
   </div>
 );
@@ -245,11 +297,16 @@ export const Btn = ({ children, onClick, primary, danger, style = {} }) => (
     display: "flex", alignItems: "center", gap: 5,
     padding: "7px 14px", borderRadius: T.rad.sm,
     border: primary ? "none" : danger ? `1px solid ${T.r.m}30` : `1px solid ${T.b.s}`,
-    background: primary ? T.accent : danger ? T.r.m + '10' : T.bg.card,
+    background: primary
+      ? `linear-gradient(180deg, ${T.accent}, #05b78a)`
+      : danger
+        ? T.r.m + '10'
+        : T.fx.card,
     color: primary ? "#06060a" : danger ? T.r.m : T.t.s,
     cursor: "pointer", fontSize: 11, fontFamily: mono, fontWeight: 600,
     textTransform: "uppercase", letterSpacing: 0.5,
-    transition: T.tr.fast,
+    boxShadow: primary ? T.shadow.glow(T.accent) : "none",
+    transition: T.tr.ceramic,
     ...style,
   }}>{children}</button>
 );
@@ -295,7 +352,7 @@ export class ErrorBoundary extends Component {
           border: `1px solid ${T.r.m}20`, margin: 20,
         }}>
           <AlertTriangle size={32} color={T.r.m} style={{ marginBottom: 12 }} />
-          <div style={{ fontFamily: mono, fontSize: 14, color: T.t.p, marginBottom: 8 }}>Something went wrong</div>
+          <div style={{ fontFamily: display, fontSize: 28, color: T.t.p, marginBottom: 4, lineHeight: 1 }}>Something went wrong</div>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.t.m, marginBottom: 16 }}>
             {this.state.error?.message || 'An unexpected error occurred'}
           </div>

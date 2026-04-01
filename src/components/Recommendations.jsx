@@ -1,7 +1,7 @@
 // src/components/Recommendations.jsx — APEX Live Technical Screener v2
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Search, RefreshCw, ChevronDown, ChevronUp, TrendingUp, Plus, X, Activity, Target, BarChart3, Zap, AlertTriangle, Star, Flame } from "lucide-react";
-import { T, mono, sans, pc, fmt, D, pct } from "../theme/tokens";
+import { T, mono, sans, display, pc, fmt, D, pct } from "../theme/tokens";
 import { Card, Badge, TabBar, Morph } from "./ui/Shared";
 import { fetchApexScreener, fetchSingleAnalysis, UNIVERSE_CATEGORIES } from "../api/finance";
 
@@ -552,10 +552,19 @@ const Recommendations = ({ holdings, toast }) => {
       `}</style>
 
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <TrendingUp size={16} color={T.accent} />
-          <h2 style={{ fontSize: 14, fontFamily: mono, fontWeight: 700, color: T.t.p, margin: 0 }}>APEX Screener</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: T.rad.md,
+            background: T.accent + '12', border: `1px solid ${T.accent}25`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <TrendingUp size={16} color={T.accent} />
+          </div>
+          <div>
+            <h2 style={{ fontSize: 34, fontFamily: display, fontWeight: 600, color: T.t.p, margin: 0, lineHeight: 0.88, letterSpacing: '0.04em' }}>Signal Engine</h2>
+            <div style={{ fontSize: 8, color: T.t.m, fontFamily: mono, letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: 5 }}>Live technical and risk-ranked ideas</div>
+          </div>
           <Badge color={T.accent}>{stocks.length}</Badge>
           {stocks.some(s => s._discovered) && <Badge color={T.gold}>{stocks.filter(s => s._discovered).length} new</Badge>}
         </div>
@@ -727,17 +736,21 @@ const Recommendations = ({ holdings, toast }) => {
 
       {/* ═══ RIGHT: Spotlight Panel (30%) ═══ */}
       <div style={{
-        width: 270, flexShrink: 0,
+        width: 292, flexShrink: 0,
         borderLeft: `1px solid ${T.b.s}`,
-        background: T.bg.card,
+        background: T.fx.panel,
         overflow: 'auto',
-        borderRadius: `0 ${T.rad.md}px ${T.rad.md}px 0`,
+        borderRadius: `0 ${T.rad.lg}px ${T.rad.lg}px 0`,
+        boxShadow: "inset 1px 0 0 rgba(255,255,255,0.03)",
       }}>
         <div style={{
-          padding: '10px 12px', borderBottom: `1px solid ${T.b.s}`,
+          padding: '12px 14px', borderBottom: `1px solid ${T.b.s}`,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
-          <span style={{ fontFamily: mono, fontSize: 8, color: T.t.f, textTransform: 'uppercase', letterSpacing: 1 }}>Spotlight</span>
+          <div>
+            <div style={{ fontFamily: display, fontSize: 22, color: T.t.p, lineHeight: 0.9 }}>Spotlight</div>
+            <div style={{ fontFamily: mono, fontSize: 8, color: T.t.f, textTransform: 'uppercase', letterSpacing: '0.16em', marginTop: 4 }}>Conviction view</div>
+          </div>
           {spotlight && (
             <button onClick={() => setSpotlight(null)} aria-label="Close spotlight" style={{
               background: 'none', border: 'none', cursor: 'pointer', color: T.t.f, padding: 2,
