@@ -8,6 +8,10 @@ const CG = "https://api.coingecko.com/api/v3";
 const BLOCKCHAIN = "/blockchain/charts";
 const DEFILLAMA = "/llama";
 const DEFILLAMA_STABLES = "/llama-stables";
+const SANTIMENT = "/santiment/graphql";
+
+// Santiment free tier slug mapping (subset of CM that Santiment supports)
+const SAN_SLUGS = { BTC: "bitcoin", ETH: "ethereum", SOL: "solana", BNB: "binancecoin", XRP: "ripple", ADA: "cardano", DOGE: "dogecoin", AVAX: "avalanche", DOT: "polkadot", LINK: "chainlink", LTC: "litecoin", UNI: "uniswap", AAVE: "aave", MATIC: "matic-network" };
 
 /* ── Macro fetchers (free, no API key) ── */
 
@@ -54,6 +58,47 @@ async function fetchDefiMacro() {
       stableMcap: stableNow, stableChange: stable7d ? ((stableNow - stable7d) / stable7d * 100) : null,
     };
   } catch { return null; }
+}
+
+/* ── Santiment on-chain (free tier: ~30-day lag, real MVRV/NVT/exchange flows) ── */
+
+async function fetchSantimentMetrics(slugs) {
+  // Free tier allows data up to ~30 days ago. Query last available 14-day window.
+  const to = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
+  const from = new Date(Date.now() - 44 * 86400000).toISOString().split("T")[0];
+  const results = {};
+  for (const [ticker, slug] of Object.entries(slugs)) {
+    const query = `{
+      mvrv: getMetric(metric: "mvrv_usd") { timeseriesData(slug: "${slug}", from: "${from}T00:00:00Z", to: "${to}T00:00:00Z", interval: "1d") { datetime value } }
+      nvt: getMetric(metric: "nvt") { timeseriesData(slug: "${slug}", from: "${from}T00:00:00Z", to: "${to}T00:00:00Z", interval: "1d") { datetime value } }
+      exchangeBalance: getMetric(metric: "exchange_balance") { timeseriesData(slug: "${slug}", from: "${from}T00:00:00Z", to: "${to}T00:00:00Z", interval: "1d") { datetime value } }
+    }`;
+    try {
+      const r = await fetch(SANTIMENT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      });
+      if (!r.ok) continue;
+      const json = await r.json();
+      const last = (arr) => arr?.length ? arr[arr.length - 1] : null;
+      const prev = (arr) => arr?.length > 7 ? arr[arr.length - 8] : null;
+      const mvrvArr = json.data?.mvrv?.timeseriesData;
+      const nvtArr = json.data?.nvt?.timeseriesData;
+      const exArr = json.data?.exchangeBalance?.timeseriesData;
+      const mvrvLast = last(mvrvArr);
+      const exLast = last(exArr);
+      const exPrev = prev(exArr);
+      results[ticker] = {
+        mvrv: mvrvLast?.value ?? null,
+        mvrvDate: mvrvLast?.datetime?.split("T")[0] ?? null,
+        nvt: last(nvtArr)?.value ?? null,
+        exchangeBalance: exLast?.value ?? null,
+        exchangeFlow: exLast && exPrev ? exLast.value - exPrev.value : null,
+      };
+    } catch { /* skip this ticker */ }
+  }
+  return results;
 }
 
 function calcMVRVProxy(mc, vol24h) {
@@ -183,9 +228,27 @@ const fmtB = (n) => n == null ? "—" : n >= 1e12 ? `$${(n/1e12).toFixed(1)}T` :
 const fmtHash = (n) => n == null ? "—" : n >= 1e6 ? `${(n/1e6).toFixed(0)} EH/s` : n >= 1e3 ? `${(n/1e3).toFixed(0)} PH/s` : `${n.toFixed(0)} TH/s`;
 const fmtChg = (n) => n == null ? "" : `${n >= 0 ? "+" : ""}${n.toFixed(1)}% 7d`;
 
+function interpretMVRV(value) {
+  if (value == null) return null;
+  let zone, color;
+  if (value < 1) { zone = "UNDERVALUED"; color = "#22c55e"; }
+  else if (value < 1.5) { zone = "FAIR VALUE"; color = "#3b82f6"; }
+  else if (value < 2.5) { zone = "WARMING"; color = "#f59e0b"; }
+  else { zone = "OVERHEATED"; color = "#ef4444"; }
+  return { value: Math.round(value * 100) / 100, zone, color };
+}
+
+function interpretExFlow(flow) {
+  if (flow == null) return null;
+  if (flow < -100) return { signal: "ACCUMULATION", color: "#22c55e", detail: `${Math.abs(Math.round(flow))} BTC net outflow from exchanges — coins moving to cold storage.` };
+  if (flow > 100) return { signal: "SELL PRESSURE", color: "#ef4444", detail: `${Math.round(flow)} BTC net inflow to exchanges — potential sell-side building.` };
+  return { signal: "NEUTRAL", color: "#71717a", detail: "Exchange flows are balanced — no strong directional signal." };
+}
+
 const CryptoOnChain = ({ holdings }) => {
   const [signals, setSignals] = useState([]);
   const [macro, setMacro] = useState(null);
+  const [sanData, setSanData] = useState({});
   const [loading, setLoading] = useState(true);
 
   const cryptoTickers = holdings
@@ -198,13 +261,21 @@ const CryptoOnChain = ({ holdings }) => {
       return;
     }
     setLoading(true);
+    // Build Santiment slug map for tickers in portfolio
+    const sanSlugs = {};
+    for (const tk of cryptoTickers) {
+      const up = tk.toUpperCase();
+      if (SAN_SLUGS[up]) sanSlugs[up] = SAN_SLUGS[up];
+    }
     Promise.all([
       fetchCryptoSignals(cryptoTickers),
       fetchBtcFundamentals(),
       fetchDefiMacro(),
-    ]).then(([rows, btc, defi]) => {
+      Object.keys(sanSlugs).length > 0 ? fetchSantimentMetrics(sanSlugs) : Promise.resolve({}),
+    ]).then(([rows, btc, defi, san]) => {
       setSignals(rows);
       setMacro({ btc, defi });
+      setSanData(san || {});
       setLoading(false);
     });
   }, [cryptoTickers.join(",")]);
@@ -217,7 +288,7 @@ const CryptoOnChain = ({ holdings }) => {
         <div>
           <div style={{ fontFamily: mono, fontSize: 18, fontWeight: 600, color: T.t.p }}>Crypto Intelligence Desk</div>
           <div style={{ fontFamily: mono, fontSize: 7, color: T.t.m, textTransform: "uppercase", letterSpacing: 1.5 }}>
-            CoinGecko per-coin + Blockchain.info BTC on-chain + DeFiLlama macro — free tier, no API keys
+            Santiment real MVRV/NVT + Blockchain.info + DeFiLlama + CoinGecko — all free, no API keys
           </div>
         </div>
         <Activity size={14} color={T.a.cyan} opacity={0.55} />
@@ -225,9 +296,9 @@ const CryptoOnChain = ({ holdings }) => {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, marginBottom: 12 }}>
         {[
-          coverageCard("Data sources", "CoinGecko per-coin + Blockchain.info BTC on-chain + DeFiLlama macro", T.a.blue),
-          coverageCard("Good for", "Trend, participation, hash rate health, DeFi TVL shifts, stablecoin flows", T.g.m),
-          coverageCard("Still missing", "Exchange balances, SOPR, real MVRV, whale-level flows (need CryptoQuant paid)", T.r.m),
+          coverageCard("Data sources", "CoinGecko + Blockchain.info + DeFiLlama + Santiment (real MVRV, NVT, exchange flows)", T.a.blue),
+          coverageCard("Good for", "Real MVRV/NVT cycle reads, exchange flow pressure, hash rate, DeFi TVL, stablecoin supply", T.g.m),
+          coverageCard("Limitation", "Santiment free tier has ~30-day data lag. CoinGecko proxy fills the gap for real-time signals", "#f59e0b"),
         ].map((row) => (
           <div key={row.label} style={{ padding: "10px 12px", borderRadius: T.rad.md, background: T.bg.deep, border: `1px solid ${row.color}20` }}>
             <div style={{ fontFamily: mono, fontSize: 7, color: row.color, textTransform: "uppercase", letterSpacing: 1.1, marginBottom: 5 }}>{row.label}</div>
@@ -297,7 +368,28 @@ const CryptoOnChain = ({ holdings }) => {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {signals.map((signal) => {
-            const healthTone = signal.health >= 65 ? T.g.m : signal.health >= 45 ? T.w.m : T.r.m;
+            const san = sanData[signal.tk] || {};
+            const realMVRV = interpretMVRV(san.mvrv);
+            const exFlow = interpretExFlow(san.exchangeFlow);
+            const hasSan = !!realMVRV;
+
+            // Use real MVRV for health when available
+            let health = signal.health;
+            if (realMVRV) {
+              health = 50;
+              if (realMVRV.zone === "UNDERVALUED") health += 25;
+              else if (realMVRV.zone === "OVERHEATED") health -= 25;
+              else if (realMVRV.zone === "WARMING") health -= 10;
+              if (exFlow?.signal === "ACCUMULATION") health += 15;
+              else if (exFlow?.signal === "SELL PRESSURE") health -= 15;
+              if (signal.realized) {
+                if (signal.realized.zone === "CAPITULATION") health += 10;
+                else if (signal.realized.zone === "NEAR ATH") health -= 10;
+              }
+              health = Math.max(0, Math.min(100, health));
+            }
+
+            const healthTone = health >= 65 ? T.g.m : health >= 45 ? T.w.m : T.r.m;
             return (
               <div key={signal.tk} style={{ padding: "12px 14px", background: T.bg.deep, borderRadius: T.rad.md, border: `1px solid ${T.b.s}` }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", marginBottom: 10 }}>
@@ -317,30 +409,68 @@ const CryptoOnChain = ({ holdings }) => {
                   </div>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, marginBottom: 9 }}>
-                  {[
-                    { label: "MVRV Proxy", value: signal.mvrv?.zone || "—", color: signal.mvrv?.color || T.t.f },
-                    { label: "Flow Signal", value: signal.flow?.signal || "—", color: signal.flow?.color || T.t.f },
-                    { label: "ATH Zone", value: signal.realized?.zone || "—", color: signal.realized?.color || T.t.f },
-                  ].map((row) => (
-                    <div key={row.label} style={{ padding: "8px 9px", borderRadius: T.rad.sm, background: T.bg.el }}>
-                      <div style={{ fontFamily: mono, fontSize: 6, color: T.t.f, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 }}>{row.label}</div>
+                <div style={{ display: "grid", gridTemplateColumns: hasSan ? "repeat(4, minmax(0, 1fr))" : "repeat(3, minmax(0, 1fr))", gap: 8, marginBottom: 9 }}>
+                  {realMVRV ? (
+                    <div style={{ padding: "8px 9px", borderRadius: T.rad.sm, background: T.bg.el }}>
+                      <div style={{ fontFamily: mono, fontSize: 6, color: T.t.f, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 }}>MVRV <span style={{ color: "#22c55e" }}>REAL</span></div>
                       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                        <SignalDot color={row.color} />
-                        <span style={{ fontFamily: mono, fontSize: 9, fontWeight: 700, color: row.color }}>{row.value}</span>
+                        <SignalDot color={realMVRV.color} />
+                        <span style={{ fontFamily: mono, fontSize: 9, fontWeight: 700, color: realMVRV.color }}>{realMVRV.value} — {realMVRV.zone}</span>
+                      </div>
+                      {san.mvrvDate && <div style={{ fontFamily: mono, fontSize: 6, color: T.t.f, marginTop: 2 }}>as of {san.mvrvDate}</div>}
+                    </div>
+                  ) : (
+                    <div style={{ padding: "8px 9px", borderRadius: T.rad.sm, background: T.bg.el }}>
+                      <div style={{ fontFamily: mono, fontSize: 6, color: T.t.f, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 }}>MVRV Proxy</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        <SignalDot color={signal.mvrv?.color || T.t.f} />
+                        <span style={{ fontFamily: mono, fontSize: 9, fontWeight: 700, color: signal.mvrv?.color || T.t.f }}>{signal.mvrv?.zone || "—"}</span>
                       </div>
                     </div>
-                  ))}
+                  )}
+                  {san.nvt != null ? (
+                    <div style={{ padding: "8px 9px", borderRadius: T.rad.sm, background: T.bg.el }}>
+                      <div style={{ fontFamily: mono, fontSize: 6, color: T.t.f, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 }}>NVT <span style={{ color: "#22c55e" }}>REAL</span></div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        <SignalDot color={san.nvt > 150 ? "#ef4444" : san.nvt > 80 ? "#f59e0b" : "#22c55e"} />
+                        <span style={{ fontFamily: mono, fontSize: 9, fontWeight: 700, color: san.nvt > 150 ? "#ef4444" : san.nvt > 80 ? "#f59e0b" : "#22c55e" }}>{Math.round(san.nvt)}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ padding: "8px 9px", borderRadius: T.rad.sm, background: T.bg.el }}>
+                      <div style={{ fontFamily: mono, fontSize: 6, color: T.t.f, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 }}>Flow Signal</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        <SignalDot color={signal.flow?.color || T.t.f} />
+                        <span style={{ fontFamily: mono, fontSize: 9, fontWeight: 700, color: signal.flow?.color || T.t.f }}>{signal.flow?.signal || "—"}</span>
+                      </div>
+                    </div>
+                  )}
+                  <div style={{ padding: "8px 9px", borderRadius: T.rad.sm, background: T.bg.el }}>
+                    <div style={{ fontFamily: mono, fontSize: 6, color: T.t.f, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 }}>ATH Zone</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      <SignalDot color={signal.realized?.color || T.t.f} />
+                      <span style={{ fontFamily: mono, fontSize: 9, fontWeight: 700, color: signal.realized?.color || T.t.f }}>{signal.realized?.zone || "—"}</span>
+                    </div>
+                  </div>
+                  {exFlow && (
+                    <div style={{ padding: "8px 9px", borderRadius: T.rad.sm, background: T.bg.el }}>
+                      <div style={{ fontFamily: mono, fontSize: 6, color: T.t.f, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 }}>Exchange Flow <span style={{ color: "#22c55e" }}>REAL</span></div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        <SignalDot color={exFlow.color} />
+                        <span style={{ fontFamily: mono, fontSize: 9, fontWeight: 700, color: exFlow.color }}>{exFlow.signal}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, alignItems: "center", marginBottom: 9 }}>
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-                      <span style={{ fontFamily: mono, fontSize: 7, color: T.t.f, textTransform: "uppercase", letterSpacing: 1 }}>Proxy health</span>
-                      <span style={{ fontFamily: mono, fontSize: 9, color: healthTone, fontWeight: 700 }}>{signal.health}/100</span>
+                      <span style={{ fontFamily: mono, fontSize: 7, color: T.t.f, textTransform: "uppercase", letterSpacing: 1 }}>{hasSan ? "On-chain health" : "Proxy health"}</span>
+                      <span style={{ fontFamily: mono, fontSize: 9, color: healthTone, fontWeight: 700 }}>{health}/100</span>
                     </div>
                     <div style={{ height: 6, borderRadius: T.rad.pill, overflow: "hidden", background: T.b.s }}>
-                      <div style={{ width: `${signal.health}%`, height: "100%", background: `linear-gradient(90deg, ${healthTone}, ${healthTone}aa)` }} />
+                      <div style={{ width: `${health}%`, height: "100%", background: `linear-gradient(90deg, ${healthTone}, ${healthTone}aa)` }} />
                     </div>
                   </div>
                   <div style={{ padding: "8px 9px", borderRadius: T.rad.sm, background: signal.ch7d >= 0 ? T.g.bg : T.r.bg, border: `1px solid ${(signal.ch7d >= 0 ? T.g.m : T.r.m)}20` }}>
@@ -353,7 +483,7 @@ const CryptoOnChain = ({ holdings }) => {
 
                 <div style={{ display: "grid", gridTemplateColumns: "1.1fr 0.9fr", gap: 8 }}>
                   <div style={{ fontFamily: mono, fontSize: 9, color: T.t.s, lineHeight: 1.6 }}>
-                    {signal.flow?.detail || "Flow read is unavailable for this asset right now."}
+                    {exFlow?.detail || signal.flow?.detail || "Flow read is unavailable for this asset right now."}
                   </div>
                   <div style={{ padding: "8px 9px", borderRadius: T.rad.sm, background: T.bg.el }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}>
@@ -361,11 +491,17 @@ const CryptoOnChain = ({ holdings }) => {
                       <span style={{ fontFamily: mono, fontSize: 7, color: T.accent, textTransform: "uppercase", letterSpacing: 1 }}>Desk note</span>
                     </div>
                     <div style={{ fontFamily: mono, fontSize: 9, color: T.t.s, lineHeight: 1.55 }}>
-                      {signal.health >= 65
-                        ? "Constructive proxy tape. Good enough for stalking entries, but still not the same as a real on-chain dashboard."
-                        : signal.health >= 45
-                          ? "Mixed signal. Respect the trend, but treat it as a watch candidate, not conviction."
-                          : "Weak proxy read. Without better on-chain coverage, this is more narrative than edge."}
+                      {hasSan
+                        ? (health >= 65
+                          ? "Real on-chain metrics confirm constructive conditions. MVRV and exchange flows aligned."
+                          : health >= 45
+                            ? "On-chain data shows mixed signals. MVRV and flows are not aligned — wait for clarity."
+                            : "On-chain metrics flag caution. Elevated MVRV or exchange inflows suggest distribution risk.")
+                        : (health >= 65
+                          ? "Constructive proxy tape. Good enough for stalking entries, but still not the same as a real on-chain dashboard."
+                          : health >= 45
+                            ? "Mixed signal. Respect the trend, but treat it as a watch candidate, not conviction."
+                            : "Weak proxy read. Without better on-chain coverage, this is more narrative than edge.")}
                     </div>
                   </div>
                 </div>

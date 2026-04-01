@@ -36,6 +36,16 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/llama-stables/, ''),
       },
+      '/santiment': {
+        target: 'https://api.santiment.net',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/santiment/, ''),
+      },
+      '/cg': {
+        target: 'https://api.coingecko.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/cg/, ''),
+      },
     },
   },
 })
