@@ -1,0 +1,53 @@
+name: Micro-Cap Scanner
+
+on:
+  schedule:
+    # Weekdays at 2:00 AM UTC (after US market close)
+    - cron: "0 2 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      top_n:
+        description: "Number of top picks to send via Telegram"
+        required: false
+        default: "20"
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Create data directory
+        run: mkdir -p data
+
+      - name: Run micro-cap scanner
+        run: node scripts/microcap-scanner.mjs --top 200
+
+      - name: Send Telegram notification
+        continue-on-error: true
+        run: node scripts/telegram-notify.mjs --top ${{ inputs.top_n || 10 }}
+
+      - name: Commit and push updated scan data
+        run: |
+          git config user.name "APEX Scanner Bot"
+          git config user.email "bot@apex.local"
+          git add data/microcap_cache.json
+          if git diff --cached --quiet; then
+            echo "No changes to microcap_cache.json — skipping commit."
+          else
+            git commit -m "data: update micro-cap scan [skip ci]"
+            git push origin main
+          fi
