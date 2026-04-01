@@ -1,7 +1,7 @@
 // src/components/Scanner.jsx — Full Market Scanner: Stocks (Sector Sniper) + Crypto (Categorized)
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Crosshair, RefreshCw, Zap, Star } from "lucide-react";
-import { T, mono, pc, D, pct, fmt } from "../theme/tokens";
+import { T, mono, display, pc, D, pct, fmt } from "../theme/tokens";
 import { _c, fetchTopMovers, UNIVERSE_CATEGORIES, tickerCategory } from "../api/finance";
 import { Card, Badge, TabBar, Morph } from "./ui/Shared";
 
@@ -174,6 +174,10 @@ const sigColor = s => {
   if (s === 'BUY') return '#34d399';
   if (s === 'HOLD') return T.w.m;
   if (s === 'SELL') return T.r.m;
+  // Micro-cap setup types
+  if (s === 'MOMENTUM') return '#3b82f6';
+  if (s === 'INSIDER') return '#a78bfa';
+  if (s === 'MULTI') return T.accent || '#22d3ee';
   return T.t.m;
 };
 
@@ -186,10 +190,20 @@ const momColor = v => {
 };
 
 const scoreColor = s => {
-  if (s >= 5) return T.g.m;
+  if (s >= 70) return T.g.m;    // Tier A
+  if (s >= 50) return '#34d399'; // Tier B
+  if (s >= 30) return T.w.m;    // Tier C
+  if (s >= 5) return T.g.m;     // legacy 0-10 scale
   if (s >= 3) return '#34d399';
   if (s >= 0) return T.w.m;
   return T.r.m;
+};
+
+const tierColor = t => {
+  if (t === 'A') return T.g.m;
+  if (t === 'B') return '#facc15';
+  if (t === 'C') return T.t.m;
+  return T.t.f;
 };
 
 /* ═══ SPOTLIGHT PANEL ═══ */
@@ -206,32 +220,97 @@ const SpotlightPanel = ({ item, mode }) => {
   );
 
   const isStock = mode === 'Stocks';
-  const change = isStock ? item.ch : item.ch;
-  const changeColor = pc(change);
+  const isMicro = mode === 'Micro-Caps';
+  const change = isMicro ? null : item.ch;
+  const changeColor = change != null ? pc(change) : T.t.f;
 
   return (
     <div style={{ padding: '14px 12px', animation: 'slideIn 0.22s cubic-bezier(0.22,1,0.36,1)', fontFamily: mono }}>
       {/* Ticker + Price */}
       <div style={{ marginBottom: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-          {!isStock && item.img && <img src={item.img} alt="" style={{ width: 20, height: 20, borderRadius: 3 }} />}
+          {!isStock && !isMicro && item.img && <img src={item.img} alt="" style={{ width: 20, height: 20, borderRadius: 3 }} />}
           <span
             style={{ fontSize: 20, fontWeight: 800, color: T.t.p, cursor: 'pointer', letterSpacing: 0.5 }}
             title="Click to copy"
-            onClick={() => { navigator.clipboard.writeText(item.tk); }}
-          >{item.tk}</span>
+            onClick={() => { navigator.clipboard.writeText(isMicro ? item.ticker : item.tk); }}
+          >{isMicro ? item.ticker : item.tk}</span>
+          {isMicro && item.tier && (
+            <span style={{ fontSize: 11, fontWeight: 800, padding: '1px 6px', borderRadius: 3, background: tierColor(item.tier) + '20', color: tierColor(item.tier) }}>
+              TIER {item.tier}
+            </span>
+          )}
         </div>
-        <div style={{ fontSize: 9, color: T.t.m, marginBottom: 8 }}>{item.nm}</div>
-        <Morph value={D(item.pr)} style={{ fontSize: 22, fontWeight: 700, color: T.t.p, lineHeight: 1 }} />
-        <div style={{ marginTop: 4 }}>
-          <Morph value={pct(change)} style={{ fontSize: 13, fontWeight: 600, color: changeColor }} />
-        </div>
+        {!isMicro && <div style={{ fontSize: 9, color: T.t.m, marginBottom: 8 }}>{item.nm}</div>}
+        {isMicro && item.sector && <div style={{ fontSize: 9, color: T.t.m, marginBottom: 8 }}>{item.sector} · {item.dataAsOf || '—'}</div>}
+        <Morph value={D(isMicro ? item.price : item.pr)} style={{ fontSize: 22, fontWeight: 700, color: T.t.p, lineHeight: 1 }} />
+        {change != null && (
+          <div style={{ marginTop: 4 }}>
+            <Morph value={pct(change)} style={{ fontSize: 13, fontWeight: 600, color: changeColor }} />
+          </div>
+        )}
       </div>
 
       {/* Divider */}
       <div style={{ height: 1, background: T.b.s, margin: '8px 0 12px' }} />
 
-      {isStock ? (
+      {isMicro ? (
+        <>
+          {/* Setup + Net Score */}
+          <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Badge color={sigColor(item.setup)} style={{ fontSize: 9 }}>{item.setup}</Badge>
+            <span style={{ fontSize: 13, fontWeight: 800, color: scoreColor(item.netScore) }}>{item.netScore}</span>
+          </div>
+
+          {/* Reliability bar */}
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+              <span style={{ fontSize: 7, color: T.t.f, textTransform: 'uppercase', letterSpacing: 0.8 }}>Reliability</span>
+              <span style={{ fontSize: 9, fontWeight: 700, color: item.reliabilityScore >= 50 ? T.t.s : T.r.m }}>{item.reliabilityScore}/100</span>
+            </div>
+            <div style={{ height: 5, borderRadius: 3, background: T.bg.el, overflow: 'hidden' }}>
+              <div style={{ width: `${item.reliabilityScore}%`, height: '100%', borderRadius: 3, background: item.reliabilityScore >= 60 ? T.g.m : item.reliabilityScore >= 50 ? '#facc15' : T.r.m, transition: 'width 0.3s ease' }} />
+            </div>
+          </div>
+
+          {/* Sleeves + Penalties Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 10 }}>
+            {[
+              ['Mkt Cap', item.marketCap ? fmt(item.marketCap) : '—', T.t.s],
+              ['Volume', item.volume ? fmt(item.volume) : '—', T.a?.blue || '#3b82f6'],
+              ['Momentum', item.momentumSleeve != null ? (item.momentumSleeve * 100).toFixed(0) + '%' : '—', item.momentumSleeve > 0.5 ? T.g.m : T.t.m],
+              ['Insider', item.insiderSleeve != null ? (item.insiderSleeve * 100).toFixed(0) + '%' : '—', item.insiderSleeve > 0.5 ? '#a78bfa' : T.t.m],
+              ['Supply Pen.', item.supplyPenalty != null ? '-' + (item.supplyPenalty * 100).toFixed(0) + '%' : '—', item.supplyPenalty > 0.1 ? T.r.m : T.t.f],
+              ['Cost Pen.', item.costPenalty != null ? '-' + (item.costPenalty * 100).toFixed(0) + '%' : '—', item.costPenalty > 0.1 ? T.r.m : T.t.f],
+            ].map(([label, val, color]) => (
+              <div key={label} style={{ padding: '6px 8px', background: T.bg.deep, borderRadius: 3, borderLeft: `2px solid ${color}30` }}>
+                <div style={{ fontSize: 7, color: T.t.f, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 2 }}>{label}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color }}>{val}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Reasons */}
+          {item.reasons?.length > 0 && (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 7, color: T.g.m, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 5 }}>Why it scored</div>
+              {item.reasons.map((r, ri) => (
+                <div key={ri} style={{ fontSize: 9, color: T.t.s, lineHeight: 1.5, paddingLeft: 8, borderLeft: `2px solid ${T.g.m}20`, marginBottom: 3 }}>{r}</div>
+              ))}
+            </div>
+          )}
+
+          {/* Warnings */}
+          {item.warnings?.length > 0 && (
+            <div>
+              <div style={{ fontSize: 7, color: T.r.m, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 5 }}>Warnings</div>
+              {item.warnings.map((w, wi) => (
+                <div key={wi} style={{ fontSize: 9, color: T.r.m + 'cc', lineHeight: 1.5, paddingLeft: 8, borderLeft: `2px solid ${T.r.m}20`, marginBottom: 3 }}>{w}</div>
+              ))}
+            </div>
+          )}
+        </>
+      ) : isStock ? (
         <>
           {/* Signal */}
           <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -323,6 +402,12 @@ const Scanner = ({ toast }) => {
   const [cryptoCat, setCryptoCat] = useState('All');
   const [cryptoData, setCryptoData] = useState([]);
   const [cryptoLoading, setCryptoLoading] = useState(false);
+  const [microCapData, setMicroCapData] = useState([]);
+  const [microCapLoading, setMicroCapLoading] = useState(false);
+  const [microCapError, setMicroCapError] = useState(null);
+  const [microCapFetchedAt, setMicroCapFetchedAt] = useState(null);
+  const [microCapCacheTs, setMicroCapCacheTs] = useState(null);
+  const [microCapFilter, setMicroCapFilter] = useState('All');
   const [tab, setTab] = useState("All");
   const [spotlight, setSpotlight] = useState(null);
   const [spotIdx, setSpotIdx] = useState(-1);
@@ -382,11 +467,53 @@ const Scanner = ({ toast }) => {
     }
   }, [cryptoCat, mode]);
 
+  // Load micro-cap data
+  useEffect(() => {
+    if (mode !== 'Micro-Caps') return;
+    // Don't refetch if already loaded and less than 1 hour old
+    if (microCapData.length > 0 && microCapFetchedAt && Date.now() - microCapFetchedAt < 60 * 60 * 1000) return;
+
+    setMicroCapLoading(true);
+    setMicroCapError(null);
+    fetch('/data/microcap_cache.json')
+      .then(r => {
+        if (!r.ok) throw new Error('not_found');
+        return r.json();
+      })
+      .then(data => {
+        const rows = Array.isArray(data) ? data : (data.stocks || data.rows || data.data || []);
+        const ts = data.scannedAt || data.generated_at || data.timestamp || null;
+        setMicroCapData(rows);
+        setMicroCapFetchedAt(Date.now());
+        setMicroCapCacheTs(ts ? new Date(ts).getTime() : null);
+        setMicroCapLoading(false);
+      })
+      .catch(() => {
+        setMicroCapError('not_found');
+        setMicroCapData([]);
+        setMicroCapLoading(false);
+      });
+  }, [mode, microCapData.length, microCapFetchedAt]);
+
   // Top 5 high-conviction picks from current sector
   const top5 = useMemo(() => stockData.filter(s => s.score >= 3).slice(0, 5), [stockData]);
 
   const filteredStocks = tab === 'All' ? stockData : tab === 'Gainers' ? stockData.filter(s => s.ch > 0) : stockData.filter(s => s.ch < 0);
   const filteredCrypto = tab === 'All' ? cryptoData : tab === 'Gainers' ? cryptoData.filter(s => s.ch > 0) : cryptoData.filter(s => s.ch < 0);
+
+  const filteredMicroCaps = useMemo(() => {
+    let rows = microCapData;
+    if (microCapFilter === 'Top 20') rows = [...rows].sort((a, b) => (b.netScore || 0) - (a.netScore || 0)).slice(0, 20);
+    else if (microCapFilter === 'Tier A') rows = rows.filter(s => s.tier === 'A');
+    else if (microCapFilter === '> $5M Cap') rows = rows.filter(s => (s.marketCap || 0) > 5_000_000);
+    return rows;
+  }, [microCapData, microCapFilter]);
+
+  const microCapStaleHours = useMemo(() => {
+    if (!microCapCacheTs) return null;
+    const hours = Math.round((Date.now() - microCapCacheTs) / (1000 * 60 * 60));
+    return hours > 24 ? hours : null;
+  }, [microCapCacheTs]);
 
   const refresh = () => {
     _c.delete('sector_mom');
@@ -394,6 +521,11 @@ const Scanner = ({ toast }) => {
     Object.keys(CRYPTO_CATEGORIES).forEach(k => _c.delete('crypto_' + k));
     _c.delete('crypto_All');
     fetchSectorMomentum().then(setSectors);
+    if (mode === 'Micro-Caps') {
+      setMicroCapFetchedAt(null);
+      setMicroCapData([]);
+      setMicroCapError(null);
+    }
     if (mode === 'Stocks' && activeSector) {
       const sectorDef = SECTOR_ETFS.find(s => s.sector === activeSector);
       if (sectorDef) {
@@ -408,11 +540,11 @@ const Scanner = ({ toast }) => {
   };
 
   // Clear spotlight when switching modes
-  useEffect(() => { setSpotlight(null); setSpotIdx(-1); }, [mode, activeSector, cryptoCat]);
+  useEffect(() => { setSpotlight(null); setSpotIdx(-1); }, [mode, activeSector, cryptoCat, microCapFilter]);
 
   // J/K keyboard navigation
   useEffect(() => {
-    const list = mode === 'Stocks' ? filteredStocks : filteredCrypto;
+    const list = mode === 'Stocks' ? filteredStocks : mode === 'Micro-Caps' ? filteredMicroCaps : filteredCrypto;
     const handler = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
       if (e.key === 'j' || e.key === 'ArrowDown') {
@@ -441,15 +573,24 @@ const Scanner = ({ toast }) => {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [mode, filteredStocks, filteredCrypto]);
+  }, [mode, filteredStocks, filteredCrypto, filteredMicroCaps]);
 
   return (
     <div style={{ display: 'flex', gap: 0, height: 'calc(100vh - 80px)' }}>
       {/* ═══ LEFT: Data Grid (70%) ═══ */}
       <div style={{ flex: '1 1 70%', minWidth: 0, overflow: 'auto', paddingRight: spotlight ? 0 : 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <Crosshair size={14} color={T.accent} />
-        <span style={{ fontSize: 13, fontFamily: mono, fontWeight: 700, letterSpacing: 0.5 }}>MARKET SCANNER</span>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, marginBottom: 14 }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: T.rad.md,
+          background: T.accent + '12', border: `1px solid ${T.accent}25`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Crosshair size={16} color={T.accent} />
+        </div>
+        <div>
+          <div style={{ fontSize: 34, fontFamily: display, fontWeight: 600, color: T.t.p, lineHeight: 0.88, letterSpacing: '0.04em' }}>Market Scanner</div>
+          <div style={{ fontSize: 8, color: T.t.m, fontFamily: mono, letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: 5 }}>Momentum, crypto, and micro-cap setups</div>
+        </div>
       </div>
 
       {/* Sector Momentum Heatmap — clickable */}
@@ -484,13 +625,16 @@ const Scanner = ({ toast }) => {
       {/* Mode + Filter */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
         <div style={{ display: 'flex', gap: 0 }}>
-          <TabBar tabs={["Stocks", "Crypto"]} active={mode} set={setMode} />
+          <TabBar tabs={["Stocks", "Crypto", "Micro-Caps"]} active={mode} set={setMode} />
           <div style={{ width: 12 }} />
           {mode === 'Crypto' && (
             <TabBar tabs={['All', ...Object.keys(CRYPTO_CATEGORIES)]} active={cryptoCat} set={setCryptoCat} />
           )}
           {mode === 'Stocks' && (
             <TabBar tabs={["All", "Gainers", "Losers"]} active={tab} set={setTab} />
+          )}
+          {mode === 'Micro-Caps' && (
+            <TabBar tabs={['All', 'Top 20', 'Tier A', '> $5M Cap']} active={microCapFilter} set={setMicroCapFilter} />
           )}
         </div>
         <button onClick={refresh} aria-label="Refresh scanner" style={{
@@ -641,6 +785,78 @@ const Scanner = ({ toast }) => {
         </Card>
       )}
 
+      {/* ═══ MICRO-CAPS MODE ═══ */}
+      {mode === 'Micro-Caps' && (
+        <>
+          {/* Stale data warning */}
+          {microCapStaleHours && (
+            <div style={{ marginBottom: 8, padding: '6px 10px', background: '#facc1520', border: '1px solid #facc1540', borderRadius: 3, fontFamily: mono, fontSize: 9, color: '#facc15', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Zap size={10} /> Data is {microCapStaleHours} hours old
+            </div>
+          )}
+
+          <Card style={{ padding: 0 }}>
+            {microCapLoading ? (
+              <div style={{ padding: 24, textAlign: 'center', color: T.t.m, fontFamily: mono, fontSize: 10 }}>
+                <RefreshCw size={12} style={{ animation: 'spin 1s linear infinite', marginRight: 6, verticalAlign: 'middle' }} />
+                Loading micro-caps...
+              </div>
+            ) : microCapError === 'not_found' ? (
+              <div style={{ padding: 24, textAlign: 'center', color: T.t.m, fontFamily: mono, fontSize: 10 }}>
+                No micro-cap data. Run <code style={{ background: T.bg.deep, padding: '2px 6px', borderRadius: 2, color: T.t.s }}>node scripts/microcap-scanner.mjs</code> to generate.
+              </div>
+            ) : filteredMicroCaps.length === 0 ? (
+              <div style={{ padding: 24, textAlign: 'center', color: T.t.m, fontFamily: mono, fontSize: 10 }}>No micro-caps match filter</div>
+            ) : (
+              <div ref={tableRef} style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 280px)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: mono, fontSize: 10 }}>
+                  <thead>
+                    <tr style={{ borderBottom: `1px solid ${T.b.s}`, position: 'sticky', top: 0, background: T.bg.card, zIndex: 1 }}>
+                      {['#', 'Ticker', 'Price', 'Tier', 'Net Score', 'Setup', 'Reliability', 'Mkt Cap', 'Volume', 'Sector'].map(h => (
+                        <th key={h} style={{ padding: '4px 6px', textAlign: h === 'Ticker' || h === 'Sector' ? 'left' : 'right', color: T.t.m, fontSize: 7, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 400 }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredMicroCaps.map((s, i) => (
+                      <tr key={s.ticker} onClick={() => { setSpotlight(s); setSpotIdx(i); }} className="scanner-row" style={{
+                        borderBottom: `1px solid ${T.b.s}10`, cursor: 'pointer',
+                        background: spotlight?.ticker === s.ticker ? T.accent + '08' : 'transparent',
+                        borderLeft: spotlight?.ticker === s.ticker ? `2px solid ${T.accent}` : '2px solid transparent',
+                        transition: T.tr.ceramic || T.tr.fast,
+                      }}>
+                        <td style={{ padding: '4px 6px', textAlign: 'right', color: T.t.f }}>{i + 1}</td>
+                        <td style={{ padding: '4px 6px', textAlign: 'left' }}>
+                          <span style={{ fontWeight: 700, color: T.t.p }}>{s.ticker}</span>
+                        </td>
+                        <td style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 600 }}>{D(s.price)}</td>
+                        <td style={{ padding: '4px 6px', textAlign: 'right' }}>
+                          <span style={{ padding: '1px 6px', borderRadius: 2, background: tierColor(s.tier) + '18', color: tierColor(s.tier), fontWeight: 800, fontSize: 10 }}>{s.tier}</span>
+                        </td>
+                        <td style={{ padding: '4px 6px', textAlign: 'right' }}>
+                          <span style={{ padding: '1px 5px', borderRadius: 1, background: scoreColor(s.netScore) + '15', color: scoreColor(s.netScore), fontWeight: 700, fontSize: 9 }}>{s.netScore}</span>
+                        </td>
+                        <td style={{ padding: '4px 6px', textAlign: 'right' }}>
+                          <Badge color={sigColor(s.setup)} style={{ fontSize: 7 }}>{s.setup}</Badge>
+                        </td>
+                        <td style={{ padding: '4px 6px', textAlign: 'right' }}>
+                          <span style={{ fontSize: 9, color: s.reliabilityScore >= 50 ? T.t.s : T.r.m, fontWeight: 600 }}>{s.reliabilityScore}</span>
+                        </td>
+                        <td style={{ padding: '4px 6px', textAlign: 'right', color: T.t.s }}>{s.marketCap ? fmt(s.marketCap) : '—'}</td>
+                        <td style={{ padding: '4px 6px', textAlign: 'right', color: T.t.s }}>{s.volume ? fmt(s.volume) : '—'}</td>
+                        <td style={{ padding: '4px 6px', textAlign: 'left' }}>
+                          <span style={{ fontSize: 7, color: T.t.m, background: T.bg.el, padding: '1px 4px', borderRadius: 1 }}>{s.sector || '—'}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        </>
+      )}
+
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes slideIn { from { transform: translateX(12px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
@@ -651,17 +867,21 @@ const Scanner = ({ toast }) => {
 
       {/* ═══ RIGHT: Spotlight Panel (30%) ═══ */}
       <div style={{
-        width: 260, flexShrink: 0,
+        width: 284, flexShrink: 0,
         borderLeft: `1px solid ${T.b.s}`,
-        background: T.bg.card,
+        background: T.fx.panel,
         overflow: 'auto',
-        borderRadius: `0 ${T.rad.md}px ${T.rad.md}px 0`,
+        borderRadius: `0 ${T.rad.lg}px ${T.rad.lg}px 0`,
+        boxShadow: "inset 1px 0 0 rgba(255,255,255,0.03)",
       }}>
         <div style={{
-          padding: '10px 12px', borderBottom: `1px solid ${T.b.s}`,
+          padding: '12px 14px', borderBottom: `1px solid ${T.b.s}`,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
-          <span style={{ fontFamily: mono, fontSize: 8, color: T.t.f, textTransform: 'uppercase', letterSpacing: 1 }}>Spotlight</span>
+          <div>
+            <div style={{ fontFamily: display, fontSize: 22, color: T.t.p, lineHeight: 0.9 }}>Spotlight</div>
+            <div style={{ fontFamily: mono, fontSize: 8, color: T.t.f, textTransform: 'uppercase', letterSpacing: 0.16 + 'em', marginTop: 4 }}>Context panel</div>
+          </div>
           {spotlight && (
             <button onClick={() => setSpotlight(null)} aria-label="Close spotlight" style={{
               background: 'none', border: 'none', cursor: 'pointer', color: T.t.f, padding: 2,

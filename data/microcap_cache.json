@@ -1,0 +1,105 @@
+{
+  "scannedAt": "2026-03-31T14:30:00Z",
+  "totalScanned": 150,
+  "stocks": [
+    {
+      "ticker": "LUNR", "dataAsOf": "2026-03-31", "setup": "MOMENTUM",
+      "price": 12.50, "marketCap": 450000000, "volume": 3200000,
+      "netScore": 82, "reliabilityScore": 71, "tier": "A",
+      "momentumSleeve": 0.88, "insiderSleeve": 0.45, "supplyPenalty": 0.02, "costPenalty": 0.0,
+      "reasons": ["63d return top-decile vs micro-cap peers", "Relative volume 2.1x 20d average", "3 Form 4 buys in last 45 days"],
+      "warnings": ["Float under 20M shares — expect volatility"],
+      "sector": "Aerospace"
+    },
+    {
+      "ticker": "ASTS", "dataAsOf": "2026-03-31", "setup": "INSIDER",
+      "price": 28.10, "marketCap": 980000000, "volume": 5100000,
+      "netScore": 78, "reliabilityScore": 65, "tier": "A",
+      "momentumSleeve": 0.62, "insiderSleeve": 0.91, "supplyPenalty": 0.05, "costPenalty": 0.0,
+      "reasons": ["CEO + CFO open-market buys totalling $2.4M", "Volume expansion on flat tape (accumulation read)", "SEC filings current within 30 days"],
+      "warnings": ["Market cap near $1B ceiling — borderline micro-cap"],
+      "sector": "Telecom"
+    },
+    {
+      "ticker": "RKLB", "dataAsOf": "2026-03-31", "setup": "MOMENTUM",
+      "price": 9.80, "marketCap": 620000000, "volume": 4800000,
+      "netScore": 74, "reliabilityScore": 68, "tier": "B",
+      "momentumSleeve": 0.79, "insiderSleeve": 0.30, "supplyPenalty": 0.08, "costPenalty": 0.0,
+      "reasons": ["Strong 63d return with rising 20d RVOL", "Positive revenue surprise last quarter"],
+      "warnings": ["No insider buys in 90 days", "Lock-up expiry approaching"],
+      "sector": "Aerospace"
+    },
+    {
+      "ticker": "IONQ", "dataAsOf": "2026-03-31", "setup": "MULTI",
+      "price": 14.30, "marketCap": 340000000, "volume": 2900000,
+      "netScore": 71, "reliabilityScore": 58, "tier": "B",
+      "momentumSleeve": 0.72, "insiderSleeve": 0.65, "supplyPenalty": 0.04, "costPenalty": 0.03,
+      "reasons": ["Momentum + insider alignment", "2 Form 4 buys, 63d return +34%"],
+      "warnings": ["High short interest (18%)", "Quantum sector narrative-driven"],
+      "sector": "Tech"
+    },
+    {
+      "ticker": "MVST", "dataAsOf": "2026-03-31", "setup": "INSIDER",
+      "price": 3.20, "marketCap": 180000000, "volume": 1100000,
+      "netScore": 64, "reliabilityScore": 52, "tier": "B",
+      "momentumSleeve": 0.35, "insiderSleeve": 0.82, "supplyPenalty": 0.10, "costPenalty": 0.12,
+      "reasons": ["Director cluster buys ($480K in 30 days)", "SEC filings current"],
+      "warnings": ["Negative 63d momentum", "Below $5 — penny stock territory", "Low float amplifies moves both ways"],
+      "sector": "Energy"
+    },
+    {
+      "ticker": "DNA", "dataAsOf": "2026-03-31", "setup": "INSIDER",
+      "price": 1.85, "marketCap": 95000000, "volume": 890000,
+      "netScore": 58, "reliabilityScore": 44, "tier": "C",
+      "momentumSleeve": 0.28, "insiderSleeve": 0.70, "supplyPenalty": 0.15, "costPenalty": 0.20,
+      "reasons": ["Multiple insider buys near 52-week low"],
+      "warnings": ["ReliabilityScore below 50 — treat as speculative", "Under $2 — high cost penalty", "Dilution risk from shelf registration"],
+      "sector": "Biotech"
+    },
+    {
+      "ticker": "BKSY", "dataAsOf": "2026-03-31", "setup": "MOMENTUM",
+      "price": 4.10, "marketCap": 210000000, "volume": 1500000,
+      "netScore": 55, "reliabilityScore": 49, "tier": "C",
+      "momentumSleeve": 0.68, "insiderSleeve": 0.20, "supplyPenalty": 0.06, "costPenalty": 0.08,
+      "reasons": ["Strong 63d price momentum", "Government contract pipeline expanding"],
+      "warnings": ["No recent insider activity", "ReliabilityScore below 50"],
+      "sector": "Tech"
+    },
+    {
+      "ticker": "AEHR", "dataAsOf": "2026-03-31", "setup": "MOMENTUM",
+      "price": 18.40, "marketCap": 520000000, "volume": 2200000,
+      "netScore": 52, "reliabilityScore": 62, "tier": "C",
+      "momentumSleeve": 0.55, "insiderSleeve": 0.15, "supplyPenalty": 0.03, "costPenalty": 0.0,
+      "reasons": ["Recovering from 52-week low", "SiC testing demand thesis intact"],
+      "warnings": ["Momentum sleeve middling", "Customer concentration risk"],
+      "sector": "Semiconductors"
+    },
+    {
+      "ticker": "EVTL", "dataAsOf": "2026-03-31", "setup": "MULTI",
+      "price": 5.60, "marketCap": 140000000, "volume": 780000,
+      "netScore": 48, "reliabilityScore": 41, "tier": "C",
+      "momentumSleeve": 0.60, "insiderSleeve": 0.55, "supplyPenalty": 0.12, "costPenalty": 0.05,
+      "reasons": ["Mixed momentum + insider signals", "eVTOL sector catalyst potential"],
+      "warnings": ["Pre-revenue company", "ReliabilityScore below 50", "High cash burn rate"],
+      "sector": "Aerospace"
+    },
+    {
+      "ticker": "STEM", "dataAsOf": "2026-03-31", "setup": "INSIDER",
+      "price": 2.40, "marketCap": 78000000, "volume": 650000,
+      "netScore": 42, "reliabilityScore": 38, "tier": "C",
+      "momentumSleeve": 0.22, "insiderSleeve": 0.58, "supplyPenalty": 0.18, "costPenalty": 0.15,
+      "reasons": ["Insider buying near multi-year low"],
+      "warnings": ["Negative momentum", "Low reliability — data gaps in SEC filings", "Under $3 — elevated cost penalty", "Restructuring risk"],
+      "sector": "Energy"
+    },
+    {
+      "ticker": "GENI", "dataAsOf": "2026-03-31", "setup": "MOMENTUM",
+      "price": 7.20, "marketCap": 290000000, "volume": 1800000,
+      "netScore": 39, "reliabilityScore": 55, "tier": "C",
+      "momentumSleeve": 0.48, "insiderSleeve": 0.10, "supplyPenalty": 0.05, "costPenalty": 0.0,
+      "reasons": ["Moderate price momentum"],
+      "warnings": ["No insider conviction", "Sports data sector cyclical risk"],
+      "sector": "Tech"
+    }
+  ]
+}

@@ -1,13 +1,11 @@
-// src/components/Portfolio.jsx — "Truth Serum" Portfolio Module v3 (d3.js)
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import * as d3 from "d3";
+// src/components/Portfolio.jsx — "Truth Serum" Portfolio Module v4
+import { useState, useMemo, useCallback } from "react";
 import { Briefcase, TrendingUp, Star, AlertTriangle, DollarSign, RefreshCw, Plus, Loader, Upload, ChevronDown, ChevronRight, Eye, EyeOff, Edit3, Check } from "lucide-react";
-import { T, mono, pc, D, pct } from "../theme/tokens";
+import { T, mono, display, pc, D, pct } from "../theme/tokens";
 import { fetchPrice } from "../api/finance";
-import { Card, Metric, Badge, TabBar, Btn, DriftCard } from "./ui/Shared";
+import { Card, Metric, Badge, TabBar, Btn } from "./ui/Shared";
 import AddModal from "./AddModal";
 import DetailPanel from "./DetailPanel";
-import VintageChart from "./VintageChart";
 import CryptoOnChain from "./CryptoOnChain";
 import ImportModal from "./ImportModal";
 
@@ -143,63 +141,58 @@ const Portfolio = ({ holdings, setHoldings, cash, setCash, toast }) => {
   const histBuys = TRADE_HISTORY.filter(t => t.action === 'BUY').length;
   const histSells = TRADE_HISTORY.filter(t => t.action === 'SELL').length;
   const histPnl = TRADE_HISTORY.reduce((s, t) => s + t.pnl, 0);
+  const allocationRows = useMemo(() => (
+    pie.map((row) => ({
+      ...row,
+      share: PV > 0 ? (row.v / PV) * 100 : 0,
+    })).sort((a, b) => b.share - a.share)
+  ), [pie, PV]);
 
-  // D3 Donut Chart component
-  const D3Donut = ({ data, total }) => {
-    const [hoveredSlice, setHoveredSlice] = useState(null);
-    const size = 160, outerR = 65, innerR = 42;
+  const topWeights = useMemo(() => (
+    [...data]
+      .sort((a, b) => b.val - a.val)
+      .slice(0, 4)
+      .map((row) => ({
+        ...row,
+        weight: PV > 0 ? (row.val / PV) * 100 : 0,
+      }))
+  ), [data, PV]);
 
-    const arcs = useMemo(() => {
-      const pieGen = d3.pie().value(d => d.v).sort(null).padAngle(0.03);
-      const arcGen = d3.arc().innerRadius(innerR).outerRadius(outerR).cornerRadius(3);
-      const arcHover = d3.arc().innerRadius(innerR - 2).outerRadius(outerR + 4).cornerRadius(3);
-      return pieGen(data).map(d => ({
-        path: arcGen(d),
-        hoverPath: arcHover(d),
-        data: d.data,
-        centroid: arcGen.centroid(d),
-      }));
-    }, [data]);
+  const postureStats = useMemo(() => {
+    const winners = data.filter((row) => row.pnl > 0).length;
+    const losers = data.filter((row) => row.pnl <= 0).length;
+    const stockExposure = holdings.filter((row) => row.tp === "stock").reduce((sum, row) => sum + row.qty * row.cur, 0);
+    const cryptoExposure = holdings.filter((row) => row.tp === "crypto").reduce((sum, row) => sum + row.qty * row.cur, 0);
+    const cashPct = PV > 0 ? (cash / PV) * 100 : 0;
+    const concentration = topWeights.slice(0, 3).reduce((sum, row) => sum + row.weight, 0);
 
-    return (
-      <svg width="100%" viewBox={`0 0 ${size} ${size}`} style={{ display: 'block', maxHeight: 160 }}>
-        <g transform={`translate(${size / 2},${size / 2})`}>
-          {arcs.map((a, i) => (
-            <path key={i} d={hoveredSlice === i ? a.hoverPath : a.path}
-              fill={a.data.c} opacity={hoveredSlice !== null && hoveredSlice !== i ? 0.4 : 1}
-              stroke={T.bg.card} strokeWidth={1}
-              style={{ transition: 'all 0.15s ease', cursor: 'pointer' }}
-              onMouseEnter={() => setHoveredSlice(i)}
-              onMouseLeave={() => setHoveredSlice(null)} />
-          ))}
-          <text y={-2} textAnchor="middle" fill={T.t.p} fontFamily={mono} fontSize={13} fontWeight={700}>
-            {D(total)}
-          </text>
-          <text y={12} textAnchor="middle" fill={T.t.m} fontFamily={mono} fontSize={7}>
-            TOTAL
-          </text>
-        </g>
-        {/* Hover tooltip */}
-        {hoveredSlice !== null && arcs[hoveredSlice] && (() => {
-          const a = arcs[hoveredSlice];
-          const tx = a.centroid[0] * 1.6;
-          const ty = a.centroid[1] * 1.6;
-          return (
-            <g transform={`translate(${size / 2 + tx},${size / 2 + ty})`}>
-              <rect x={-30} y={-16} width={60} height={22} rx={3}
-                fill={T.bg.card + 'f0'} stroke={a.data.c + '60'} strokeWidth={0.5} />
-              <text y={-3} textAnchor="middle" fill={a.data.c} fontFamily={mono} fontSize={8} fontWeight={600}>
-                {a.data.n}
-              </text>
-              <text y={8} textAnchor="middle" fill={T.t.m} fontFamily={mono} fontSize={7}>
-                {total > 0 ? ((a.data.v / total) * 100).toFixed(1) : 0}%
-              </text>
-            </g>
-          );
-        })()}
-      </svg>
-    );
-  };
+    return {
+      winners,
+      losers,
+      cashPct,
+      concentration,
+      stockPct: PV > 0 ? (stockExposure / PV) * 100 : 0,
+      cryptoPct: PV > 0 ? (cryptoExposure / PV) * 100 : 0,
+    };
+  }, [cash, data, holdings, PV, topWeights]);
+
+  const portfolioCalls = useMemo(() => {
+    const calls = [];
+    if (postureStats.cashPct >= 25) calls.push({ label: "Cash reserve", value: `${postureStats.cashPct.toFixed(1)}%`, tone: T.a.blue, detail: "You still have dry powder. The book can add without forcing bad entries." });
+    else calls.push({ label: "Capital deployed", value: `${(100 - postureStats.cashPct).toFixed(1)}%`, tone: T.w.m, detail: "Most of the book is already working. New adds should be selective." });
+
+    if (postureStats.concentration >= 55) calls.push({ label: "Concentration risk", value: `${postureStats.concentration.toFixed(1)}% top 3`, tone: T.r.m, detail: "The portfolio is leaning on a few names. Great if conviction is right, painful if one breaks." });
+    else calls.push({ label: "Concentration", value: `${postureStats.concentration.toFixed(1)}% top 3`, tone: T.g.m, detail: "Risk is spread well enough that one mistake should not sink the whole book." });
+
+    if (best && worst) calls.push({
+      label: "Dispersion",
+      value: `${best.tk} / ${worst.tk}`,
+      tone: best.pp + worst.pp >= 0 ? T.g.m : T.w.m,
+      detail: `Best position is ${pct(best.pp)} while the weakest is ${pct(worst.pp)}. This is where trimming or replacing laggards matters.`,
+    });
+
+    return calls;
+  }, [best, worst, postureStats]);
 
   return (
     <div>
@@ -214,8 +207,8 @@ const Portfolio = ({ holdings, setHoldings, cash, setCash, toast }) => {
             <Briefcase size={18} color={T.accent} />
           </div>
           <div>
-            <div style={{ fontFamily: mono, fontSize: 24, fontWeight: 600, color: T.t.p, lineHeight: 1 }}>Portfolio Audit</div>
-            <div style={{ fontFamily: mono, fontSize: 8, color: T.t.m, textTransform: 'uppercase', letterSpacing: 1.5, marginTop: 2 }}>Truth Serum Mode</div>
+            <div style={{ fontFamily: display, fontSize: 34, fontWeight: 600, color: T.t.p, lineHeight: 0.9, letterSpacing: '0.04em' }}>Portfolio Audit</div>
+            <div style={{ fontFamily: mono, fontSize: 8, color: T.t.m, textTransform: 'uppercase', letterSpacing: 1.8, marginTop: 5 }}>Truth Serum Mode</div>
           </div>
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: 'wrap' }}>
@@ -245,7 +238,8 @@ const Portfolio = ({ holdings, setHoldings, cash, setCash, toast }) => {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
               {Object.entries(decisionStats).map(([type, stat]) => {
                 const color = DECISION_COLORS[type] || T.t.m;
-                const pnlPct = stat.totalVal > 0 ? (stat.totalPnl / (stat.totalVal - stat.totalPnl)) * 100 : 0;
+                const cost = stat.totalVal - stat.totalPnl;
+                const pnlPct = cost > 0 ? (stat.totalPnl / cost) * 100 : 0;
                 return (
                   <div key={type} style={{
                     padding: '10px 12px', background: T.bg.deep, borderRadius: T.rad.sm,
@@ -278,38 +272,107 @@ const Portfolio = ({ holdings, setHoldings, cash, setCash, toast }) => {
         )}
       </>)}
 
-      {/* Vintage Chart */}
-      <SectionHead id="vintage" label="Inception Performance" />
+      {/* Capital posture */}
+      <SectionHead id="vintage" label="Capital Posture" />
       {sections.vintage && (
-        <div style={{ marginBottom: 14 }}>
-          <VintageChart holdings={holdings} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 12, marginBottom: 14 }}>
+          <Card style={{ padding: '16px 18px' }}>
+            <div style={{ fontFamily: mono, fontSize: 8, color: T.t.m, textTransform: 'uppercase', letterSpacing: 1.4, marginBottom: 10 }}>Desk Read</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+              {portfolioCalls.map((call) => (
+                <div key={call.label} style={{
+                  padding: '12px 13px',
+                  borderRadius: T.rad.md,
+                  background: T.bg.deep,
+                  border: `1px solid ${call.tone}22`,
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'baseline', marginBottom: 6 }}>
+                    <span style={{ fontFamily: mono, fontSize: 8, color: call.tone, textTransform: 'uppercase', letterSpacing: 1.2 }}>{call.label}</span>
+                    <span style={{ fontFamily: mono, fontSize: 14, color: call.tone, fontWeight: 700 }}>{call.value}</span>
+                  </div>
+                  <div style={{ fontFamily: mono, fontSize: 10, color: T.t.s, lineHeight: 1.6 }}>{call.detail}</div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          <Card style={{ padding: '16px 18px' }}>
+            <div style={{ fontFamily: mono, fontSize: 8, color: T.t.m, textTransform: 'uppercase', letterSpacing: 1.4, marginBottom: 10 }}>Exposure Split</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {[
+                { label: 'Stocks', value: postureStats.stockPct, tone: T.a.blue },
+                { label: 'Crypto', value: postureStats.cryptoPct, tone: T.a.cyan },
+                { label: 'Cash', value: postureStats.cashPct, tone: T.t.f },
+              ].map((row) => (
+                <div key={row.label}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                    <span style={{ fontFamily: mono, fontSize: 10, color: T.t.s }}>{row.label}</span>
+                    <span style={{ fontFamily: mono, fontSize: 10, color: row.tone, fontWeight: 700 }}>{row.value.toFixed(1)}%</span>
+                  </div>
+                  <div style={{ height: 7, borderRadius: T.rad.pill, background: T.bg.deep, overflow: 'hidden', border: `1px solid ${T.b.s}` }}>
+                    <div style={{ width: `${Math.max(0, Math.min(100, row.value))}%`, height: '100%', background: `linear-gradient(90deg, ${row.tone}, ${row.tone}aa)` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
         </div>
       )}
 
       {/* Main grid: Allocation + Table */}
       <SectionHead id="holdings" label={`Holdings (${data.length})`} />
       {sections.holdings && (
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(200px,240px) 1fr", gap: 12, marginBottom: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(260px,320px) 1fr", gap: 12, marginBottom: 14 }}>
           {/* Allocation card */}
           <Card style={{ padding: '14px 16px' }}>
-            <div style={{ color: T.t.m, fontSize: 9, textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 10, fontFamily: mono, fontWeight: 500 }}>Allocation</div>
-            {pie.length > 0 ? (
-              <D3Donut data={pie} total={PV} />
+            <div style={{ color: T.t.m, fontSize: 9, textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 10, fontFamily: mono, fontWeight: 500 }}>Allocation Ladder</div>
+            {allocationRows.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {allocationRows.map((row) => (
+                  <div key={row.n} style={{
+                    padding: '10px 12px',
+                    borderRadius: T.rad.md,
+                    background: T.bg.deep,
+                    border: `1px solid ${row.c}18`,
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                        <div style={{ width: 8, height: 8, borderRadius: 2, background: row.c }} />
+                        <span style={{ color: T.t.p, fontSize: 11, fontFamily: mono, fontWeight: 700 }}>{row.n}</span>
+                      </div>
+                      <span style={{ color: row.c, fontSize: 11, fontFamily: mono, fontWeight: 700 }}>{row.share.toFixed(1)}%</span>
+                    </div>
+                    <div style={{ height: 8, borderRadius: T.rad.pill, background: T.bg.el, overflow: 'hidden', marginBottom: 6 }}>
+                      <div style={{ width: `${Math.max(0, Math.min(100, row.share))}%`, height: '100%', background: `linear-gradient(90deg, ${row.c}, ${row.c}aa)` }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: T.t.m, fontSize: 10, fontFamily: mono }}>Capital committed</span>
+                      <span style={{ color: T.t.p, fontSize: 10, fontFamily: mono, fontWeight: 600 }}>{D(row.v)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : <div style={{ textAlign: "center", color: T.t.m, padding: 30, fontSize: 11 }}>Add positions</div>}
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
-              {pie.map(p => (
-                <div key={p.n} style={{ display: "flex", justifyContent: "space-between", alignItems: 'center' }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <div style={{ width: 8, height: 8, borderRadius: 2, background: p.c }} />
-                    <span style={{ color: T.t.s, fontSize: 11, fontFamily: mono }}>{p.n}</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ color: T.t.p, fontSize: 11, fontFamily: mono, fontWeight: 600 }}>{D(p.v)}</span>
-                    <span style={{ color: T.t.m, fontSize: 10, fontFamily: mono, minWidth: 36, textAlign: 'right' }}>{PV > 0 ? ((p.v / PV) * 100).toFixed(1) : 0}%</span>
-                  </div>
+
+            {topWeights.length > 0 && (
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.b.s}` }}>
+                <div style={{ color: T.t.m, fontSize: 8, textTransform: "uppercase", letterSpacing: 1.1, marginBottom: 8, fontFamily: mono }}>Top weights</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {topWeights.map((row) => (
+                    <div key={row.tk} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                      <div>
+                        <div style={{ color: T.t.p, fontSize: 11, fontFamily: mono, fontWeight: 700 }}>{row.tk}</div>
+                        <div style={{ color: T.t.m, fontSize: 9, fontFamily: mono }}>{row.decision || 'Thesis'}</div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ color: T.t.p, fontSize: 10, fontFamily: mono, fontWeight: 700 }}>{row.weight.toFixed(1)}%</div>
+                        <div style={{ color: pc(row.pp), fontSize: 9, fontFamily: mono }}>{pct(row.pp)}</div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
             {/* Editable cash */}
             <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${T.b.s}` }}>
               {editCash ? (

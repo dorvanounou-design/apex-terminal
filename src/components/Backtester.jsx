@@ -1,8 +1,8 @@
 // src/components/Backtester.jsx — APEX Strategy Auditor with Regime Filter
 import { useState, useCallback, useRef } from "react";
 import { FlaskConical, Play, Square } from "lucide-react";
-import { T, mono, pc, fmt, pct, D } from "../theme/tokens";
-import { Card, Badge, TabBar } from "./ui/Shared";
+import { T, mono, display, pc, pct, D } from "../theme/tokens";
+import { Card } from "./ui/Shared";
 
 /* ═══ BACKTEST ENGINE ═══ */
 
@@ -190,20 +190,18 @@ async function runBacktest({ tickers, startCash, stopLossPct, entryThreshold, ex
     }
 
     // Regime filter: check primary benchmark (first in list) for market health
+    // Pre-computed benchmark closes are appended incrementally (not rebuilt each week)
     let marketBullish = true;
     if (useRegimeFilter && benchmarkSyms.length > 0) {
       const primaryBench = benchmarkData[benchmarkSyms[0]];
       if (primaryBench) {
-        const benchClosesUpToNow = primaryBench.closes
-          ? primaryBench.closes.slice(0, Math.max(1, wi))
-          : null;
-        // Use the map to get closes up to current date
-        const bCloses = [];
-        for (let bi = startIdx; bi <= wi && bi < timeline.length; bi++) {
-          const bp = findClosestPrice(primaryBench.map, timeline[bi]);
-          if (bp) bCloses.push(bp);
+        // Append only the new week's close instead of rebuilding from startIdx every iteration
+        const bp = findClosestPrice(primaryBench.map, timeline[wi]);
+        if (bp) {
+          if (!primaryBench._cachedCloses) primaryBench._cachedCloses = [];
+          primaryBench._cachedCloses.push(bp);
         }
-        marketBullish = isMarketBullish(bCloses);
+        marketBullish = isMarketBullish(primaryBench._cachedCloses || []);
       }
     }
 
@@ -607,6 +605,43 @@ export default function Backtester() {
   }, [config, periodIdx, selectedBenchmarks, regimeFilter]);
 
   const m = result?.metrics;
+  const benchmarkRows = Object.entries(m?.benchmarkMetrics || {}).map(([sym, bm]) => {
+    const alpha = m.cagr - bm.cagr;
+    return {
+      sym,
+      label: BENCHMARKS[sym]?.label || sym,
+      cagr: bm.cagr,
+      totalReturn: bm.totalReturn,
+      alpha,
+      color: BENCHMARKS[sym]?.color || T.t.p,
+    };
+  });
+  const monthlySummary = (() => {
+    const months = m?.monthlyPnl || [];
+    if (!months.length) return null;
+    const positive = months.filter((row) => row.ret > 0);
+    const negative = months.filter((row) => row.ret <= 0);
+    const bestMonth = months.reduce((best, row) => row.ret > best.ret ? row : best, months[0]);
+    const worstMonth = months.reduce((worst, row) => row.ret < worst.ret ? row : worst, months[0]);
+    return {
+      hitRate: (positive.length / months.length) * 100,
+      positive: positive.length,
+      negative: negative.length,
+      bestMonth,
+      worstMonth,
+    };
+  })();
+  const exitMix = (() => {
+    const closed = result?.trades?.filter((trade) => trade.type === 'SELL') || [];
+    if (!closed.length) return [];
+    const totals = closed.reduce((acc, trade) => {
+      acc[trade.reason] = (acc[trade.reason] || 0) + 1;
+      return acc;
+    }, {});
+    return Object.entries(totals)
+      .map(([reason, count]) => ({ reason, count, share: (count / closed.length) * 100 }))
+      .sort((a, b) => b.count - a.count);
+  })();
 
   const metricBox = (label, value, color) => (
     <div style={{ background: T.bg.deep, padding: '6px 8px', borderLeft: `2px solid ${color || T.accent}` }}>
@@ -617,9 +652,18 @@ export default function Backtester() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <FlaskConical size={14} color={T.accent} />
-        <span style={{ fontSize: 13, fontFamily: mono, fontWeight: 700, color: T.t.p, letterSpacing: 0.5 }}>STRATEGY AUDITOR</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+        <div style={{
+          width: 34, height: 34, borderRadius: T.rad.md,
+          background: T.accent + '12', border: `1px solid ${T.accent}25`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <FlaskConical size={16} color={T.accent} />
+        </div>
+        <div>
+          <div style={{ fontSize: 34, fontFamily: display, fontWeight: 600, color: T.t.p, lineHeight: 0.9, letterSpacing: '0.04em' }}>Strategy Auditor</div>
+          <div style={{ fontSize: 8, fontFamily: mono, color: T.t.m, textTransform: 'uppercase', letterSpacing: 1.8, marginTop: 5 }}>Regime-aware backtest lab</div>
+        </div>
       </div>
 
       {/* Config */}
@@ -785,29 +829,117 @@ export default function Backtester() {
             </div>
           </Card>
 
-          {/* Equity Curve */}
-          <Card style={{ marginBottom: 10, padding: '8px 10px' }}>
-            <div style={{ fontSize: 8, color: T.t.m, fontFamily: mono, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
-              Equity Curve {selectedBenchmarks.map(s => 'vs ' + BENCHMARKS[s]?.label).join(' ')}
-            </div>
-            <MiniChart data={result.equityCurve} benchmarks={result.benchmarkCurves} benchmarkSyms={selectedBenchmarks} />
-          </Card>
-
-          {/* Drawdown */}
-          {m.drawdowns && (
-            <Card style={{ marginBottom: 10, padding: '8px 10px' }}>
-              <div style={{ fontSize: 8, color: T.t.m, fontFamily: mono, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Drawdown Map</div>
-              <DrawdownChart data={m.drawdowns} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1.15fr 0.85fr', gap: 10, marginBottom: 10 }}>
+            <Card style={{ padding: '12px 14px' }}>
+              <div style={{ fontSize: 8, color: T.t.m, fontFamily: mono, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Benchmark Board</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {benchmarkRows.map((row) => (
+                  <div key={row.sym} style={{
+                    padding: '10px 12px',
+                    borderRadius: T.rad.md,
+                    background: T.bg.deep,
+                    border: `1px solid ${row.color}22`,
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6, gap: 8 }}>
+                      <span style={{ fontFamily: mono, fontSize: 11, color: row.color, fontWeight: 700 }}>{row.label}</span>
+                      <span style={{ fontFamily: mono, fontSize: 11, color: pc(row.alpha), fontWeight: 700 }}>
+                        {row.alpha >= 0 ? '+' : ''}{row.alpha.toFixed(2)}% alpha
+                      </span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+                      <div>
+                        <div style={{ fontFamily: mono, fontSize: 7, color: T.t.f, textTransform: 'uppercase', letterSpacing: 1 }}>APEX CAGR</div>
+                        <div style={{ fontFamily: mono, fontSize: 12, color: T.t.p, fontWeight: 700 }}>{m.cagr.toFixed(2)}%</div>
+                      </div>
+                      <div>
+                        <div style={{ fontFamily: mono, fontSize: 7, color: T.t.f, textTransform: 'uppercase', letterSpacing: 1 }}>{row.label} CAGR</div>
+                        <div style={{ fontFamily: mono, fontSize: 12, color: row.color, fontWeight: 700 }}>{row.cagr.toFixed(2)}%</div>
+                      </div>
+                      <div>
+                        <div style={{ fontFamily: mono, fontSize: 7, color: T.t.f, textTransform: 'uppercase', letterSpacing: 1 }}>Total return</div>
+                        <div style={{ fontFamily: mono, fontSize: 12, color: row.totalReturn >= 0 ? T.g.m : T.r.m, fontWeight: 700 }}>{row.totalReturn.toFixed(1)}%</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </Card>
-          )}
 
-          {/* Monthly heatmap */}
-          {m.monthlyPnl && (
-            <Card style={{ marginBottom: 10, padding: '8px 10px' }}>
-              <div style={{ fontSize: 8, color: T.t.m, fontFamily: mono, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Monthly Returns</div>
-              <MonthlyHeatmap data={m.monthlyPnl} />
+            <Card style={{ padding: '12px 14px' }}>
+              <div style={{ fontSize: 8, color: T.t.m, fontFamily: mono, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Risk Desk</div>
+              <div style={{ display: 'grid', gap: 8 }}>
+                {[
+                  {
+                    label: 'Drawdown',
+                    value: `-${m.maxDD.toFixed(1)}%`,
+                    tone: m.maxDD < 20 ? T.g.m : m.maxDD < 40 ? T.w.m : T.r.m,
+                    detail: m.maxDD < 20 ? 'Contained pullbacks.' : m.maxDD < 40 ? 'Painful but survivable.' : 'Too deep for most real money operators.',
+                  },
+                  {
+                    label: 'Win / loss',
+                    value: `${m.winRate.toFixed(1)}%`,
+                    tone: m.winRate > 55 ? T.g.m : m.winRate > 45 ? T.w.m : T.r.m,
+                    detail: `${m.avgWin.toFixed(1)}% average win vs ${m.avgLoss.toFixed(1)}% average loss.`,
+                  },
+                  {
+                    label: 'Regime behavior',
+                    value: regimeFilter ? `${m.regimeLog?.bullWeeks || 0}/${m.regimeLog?.bearWeeks || 0}` : 'Filter off',
+                    tone: regimeFilter ? T.accent : T.t.f,
+                    detail: regimeFilter ? `${m.regimeExits || 0} exits were caused by the regime shield.` : 'Backtest stayed fully exposed through all market conditions.',
+                  },
+                ].map((row) => (
+                  <div key={row.label} style={{ padding: '10px 12px', borderRadius: T.rad.md, background: T.bg.deep, border: `1px solid ${row.tone}22` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'baseline', marginBottom: 5 }}>
+                      <span style={{ fontFamily: mono, fontSize: 8, color: row.tone, textTransform: 'uppercase', letterSpacing: 1.2 }}>{row.label}</span>
+                      <span style={{ fontFamily: mono, fontSize: 13, color: row.tone, fontWeight: 700 }}>{row.value}</span>
+                    </div>
+                    <div style={{ fontFamily: mono, fontSize: 9, color: T.t.s, lineHeight: 1.6 }}>{row.detail}</div>
+                  </div>
+                ))}
+              </div>
             </Card>
-          )}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+            <Card style={{ padding: '12px 14px' }}>
+              <div style={{ fontSize: 8, color: T.t.m, fontFamily: mono, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Trade Behavior</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {exitMix.map((row) => (
+                  <div key={row.reason}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span style={{ fontFamily: mono, fontSize: 10, color: T.t.s }}>{row.reason.replaceAll('_', ' ')}</span>
+                      <span style={{ fontFamily: mono, fontSize: 10, color: T.t.p, fontWeight: 700 }}>{row.count} trades</span>
+                    </div>
+                    <div style={{ height: 7, borderRadius: T.rad.pill, background: T.bg.deep, overflow: 'hidden', border: `1px solid ${T.b.s}` }}>
+                      <div style={{ width: `${row.share}%`, height: '100%', background: `linear-gradient(90deg, ${row.reason === 'STOP_LOSS' ? T.r.m : row.reason === 'REGIME_EXIT' ? T.w.m : T.g.m}, ${row.reason === 'STOP_LOSS' ? T.r.m : row.reason === 'REGIME_EXIT' ? T.w.m : T.g.m}aa)` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            <Card style={{ padding: '12px 14px' }}>
+              <div style={{ fontSize: 8, color: T.t.m, fontFamily: mono, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Monthly Cadence</div>
+              {monthlySummary ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+                  {[
+                    { label: 'Positive months', value: `${monthlySummary.positive}`, tone: T.g.m, detail: `${monthlySummary.hitRate.toFixed(0)}% monthly hit rate` },
+                    { label: 'Negative months', value: `${monthlySummary.negative}`, tone: T.r.m, detail: `${(100 - monthlySummary.hitRate).toFixed(0)}% of months closed red` },
+                    { label: 'Best month', value: `${monthlySummary.bestMonth.month}`, tone: T.a.blue, detail: `${monthlySummary.bestMonth.ret > 0 ? '+' : ''}${monthlySummary.bestMonth.ret.toFixed(1)}%` },
+                    { label: 'Worst month', value: `${monthlySummary.worstMonth.month}`, tone: T.w.m, detail: `${monthlySummary.worstMonth.ret > 0 ? '+' : ''}${monthlySummary.worstMonth.ret.toFixed(1)}%` },
+                  ].map((row) => (
+                    <div key={row.label} style={{ padding: '10px 12px', borderRadius: T.rad.md, background: T.bg.deep, border: `1px solid ${row.tone}22` }}>
+                      <div style={{ fontFamily: mono, fontSize: 8, color: row.tone, textTransform: 'uppercase', letterSpacing: 1.1, marginBottom: 6 }}>{row.label}</div>
+                      <div style={{ fontFamily: mono, fontSize: 13, color: T.t.p, fontWeight: 700, marginBottom: 4 }}>{row.value}</div>
+                      <div style={{ fontFamily: mono, fontSize: 9, color: T.t.s, lineHeight: 1.5 }}>{row.detail}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontFamily: mono, fontSize: 10, color: T.t.m }}>Not enough monthly data to summarize cadence.</div>
+              )}
+            </Card>
+          </div>
 
           {/* Trades */}
           <Card style={{ padding: '8px 10px' }}>
